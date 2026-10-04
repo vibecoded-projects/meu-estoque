@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { authenticateNamespace, logoutNamespace, createItem, updateItem, deleteItem, toggleItemSold, updateNamespace } from '@/app/actions';
-import { Lock, Unlock, Plus, Pencil, Trash2, LogOut, Image as ImageIcon, Tag, Copy, Check, Download, ExternalLink, X, Save } from 'lucide-react';
+import { Lock, Unlock, Plus, Pencil, Trash2, LogOut, Image as ImageIcon, Tag, Copy, Check, Download, ExternalLink, X, Save, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const parseImages = (urlStr: string | null | undefined): string[] => {
@@ -34,6 +34,9 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth, nam
   const [items, setItems] = useState<Item[]>(initialItems);
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuth);
   
+  // View Mode State
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+
   // Namespace State
   const [namespace, setNamespace] = useState(initialNamespace);
   const [isEditingHeader, setIsEditingHeader] = useState(false);
@@ -317,7 +320,24 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth, nam
         </div>
       </header>
 
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+          <button 
+            onClick={() => setViewMode('grid')} 
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-slate-100 text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            title="Visualização em Grade"
+          >
+            <LayoutGrid size={20} />
+          </button>
+          <button 
+            onClick={() => setViewMode('list')} 
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-slate-100 text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            title="Visualização em Lista"
+          >
+            <ListIcon size={20} />
+          </button>
+        </div>
+
         {!isAuthenticated ? (
           <button 
             onClick={() => setIsAuthModalOpen(true)}
@@ -353,22 +373,23 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth, nam
           <p className="text-slate-400 text-sm mt-1">Sua vitrine está vazia no momento.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
+        <div className={viewMode === 'grid' ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6" : "flex flex-col gap-3 sm:gap-4"}>
           {items.map(item => (
             <div 
               key={item.id} 
               onClick={() => setViewingItem(item)}
-              className={`bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative group flex flex-col ${item.is_sold ? 'opacity-80' : ''}`}
+              className={`bg-white rounded-xl overflow-hidden shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative group flex ${viewMode === 'grid' ? 'flex-col' : 'flex-row min-h-[120px] sm:min-h-[160px]'} ${item.is_sold ? 'opacity-80' : ''}`}
             >
               {/* Badge de Vendido */}
               {item.is_sold && (
-                <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-rose-600 text-white text-[10px] sm:text-xs font-bold px-2 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-md z-10 tracking-wider">
+                <div className={`absolute ${viewMode === 'grid' ? 'top-2 left-2 sm:top-3 sm:left-3' : 'top-2 left-2 sm:top-3 sm:left-3'} bg-rose-600 text-white text-[10px] sm:text-xs font-bold px-2 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-md z-10 tracking-wider`}>
                   VENDIDO
                 </div>
               )}
 
-              <div className="relative overflow-hidden aspect-square">
-                {(() => {
+              <div className={`relative overflow-hidden ${viewMode === 'grid' ? 'aspect-square' : 'w-1/3 sm:w-48 shrink-0 flex flex-col justify-center bg-slate-50 border-r border-slate-100'}`}>
+                <div className={`w-full h-full absolute inset-0`}>
+                  {(() => {
                   const urls = parseImages(item.image_url);
                   if (urls.length > 0) {
                     return (
@@ -379,8 +400,8 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth, nam
                           className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${item.is_sold ? 'grayscale-[60%]' : ''}`} 
                         />
                         {urls.length > 1 && (
-                          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm shadow flex items-center gap-1">
-                            <ImageIcon size={12} /> +{urls.length - 1}
+                          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md backdrop-blur-sm shadow flex items-center gap-1">
+                            <ImageIcon size={viewMode === 'grid' ? 12 : 14} /> +{urls.length - 1}
                           </div>
                         )}
                       </>
@@ -388,17 +409,18 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth, nam
                   } else {
                     return (
                       <div className={`w-full h-full bg-slate-50 flex items-center justify-center ${item.is_sold ? 'grayscale-[60%]' : ''}`}>
-                        <ImageIcon className="text-slate-300" size={48} />
+                        <ImageIcon className="text-slate-300" size={viewMode === 'grid' ? 48 : 32} />
                       </div>
                     );
                   }
                 })()}
                 {item.is_sold && <div className="absolute inset-0 bg-white/20"></div>}
+                </div>
               </div>
               
-              <div className="p-3 sm:p-5 flex flex-col flex-grow">
+              <div className={`p-3 sm:p-5 flex flex-col flex-grow ${viewMode === 'list' ? 'justify-between min-w-0' : ''}`}>
                 <div className="flex items-start justify-between gap-1 sm:gap-2 mb-1 sm:mb-2">
-                  <h3 className={`font-bold text-sm sm:text-lg leading-tight ${item.is_sold ? 'text-slate-500 line-through decoration-slate-400' : 'text-slate-800'}`}>
+                  <h3 className={`font-bold text-sm sm:text-lg leading-tight truncate ${item.is_sold ? 'text-slate-500 line-through decoration-slate-400' : 'text-slate-800'} ${viewMode === 'list' ? 'text-base sm:text-xl whitespace-normal line-clamp-2' : ''}`}>
                     {item.title}
                   </h3>
                   <button
@@ -410,7 +432,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth, nam
                   </button>
                 </div>
                 
-                <p className="text-xs sm:text-sm text-slate-500 mb-2 sm:mb-4 line-clamp-2 flex-grow">
+                <p className={`text-xs sm:text-sm text-slate-500 mb-2 sm:mb-4 flex-grow ${viewMode === 'grid' ? 'line-clamp-2' : 'line-clamp-3 sm:line-clamp-4'}`}>
                   {item.description || "Sem descrição"}
                 </p>
                 
