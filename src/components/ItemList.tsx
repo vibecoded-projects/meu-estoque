@@ -101,7 +101,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
 
   const handleImageUpload = async (file: File) => {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
     const filePath = `${slug}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
@@ -127,7 +127,11 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
       let finalImageUrls = [...imageUrls];
 
       if (imageFiles.length > 0) {
-        const newUploadedUrls = await Promise.all(imageFiles.map(file => handleImageUpload(file)));
+        const newUploadedUrls = [];
+        for (const file of imageFiles) {
+          const url = await handleImageUpload(file);
+          newUploadedUrls.push(url);
+        }
         finalImageUrls = [...finalImageUrls, ...newUploadedUrls];
       }
 
