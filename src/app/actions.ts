@@ -182,3 +182,27 @@ export async function toggleItemSold(slug: string, id: string, currentStatus: bo
   revalidatePath(`/${slug}`);
   return { success: true, message: 'Status atualizado!' };
 }
+
+// Atualizar informações da loja (namespace)
+export async function updateNamespace(slug: string, formData: FormData): Promise<ActionResponse> {
+  const isAuth = await checkAuth(slug);
+  if (!isAuth) return { success: false, message: 'Não autorizado.' };
+
+  const name = formData.get('name') as string;
+  const subtitle = formData.get('subtitle') as string;
+
+  const { error } = await supabaseAdmin
+    .from('namespaces')
+    .update({
+      name,
+      subtitle
+    })
+    .eq('slug', slug);
+
+  if (error) {
+    return { success: false, message: 'Erro ao atualizar a loja.' };
+  }
+
+  revalidatePath(`/${slug}`);
+  return { success: true, message: 'Loja atualizada com sucesso!' };
+}

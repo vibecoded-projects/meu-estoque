@@ -36,18 +36,11 @@ export default async function NamespacePage({
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        <header className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{namespace.name || slug}</h1>
-            <p className="text-sm text-gray-500 mt-1">Catálogo de produtos</p>
-          </div>
-          {/* O componente ItemList vai gerenciar o botão de "Gerenciar" e os modais */}
-        </header>
-
         <ItemList 
           initialItems={items || []} 
           slug={slug} 
           isAuthenticated={isAuthenticated} 
+          namespace={namespace}
         />
       </div>
     </main>

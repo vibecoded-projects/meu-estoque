@@ -3,6 +3,7 @@ CREATE TABLE namespaces (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   slug TEXT UNIQUE NOT NULL, -- Ex: 'minha-loja' (usado na URL)
   name TEXT,                 -- Nome de exibição (opcional)
+  subtitle TEXT,             -- Subtítulo/Descrição da loja (opcional)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
