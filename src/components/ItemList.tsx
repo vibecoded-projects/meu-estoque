@@ -340,13 +340,14 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
       {/* Modal de Visualização (Item Details) */}
       {viewingItem && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 overflow-y-auto transition-opacity"
           onClick={() => setViewingItem(null)}
         >
-          <div 
-            className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="min-h-full flex items-center justify-center p-4 py-8">
+            <div 
+              className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative flex flex-col md:flex-row"
+              onClick={(e) => e.stopPropagation()}
+            >
             
             <div className="md:w-1/2 relative bg-slate-100 aspect-square md:aspect-auto group">
               {viewingItem.is_sold && (
@@ -454,6 +455,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
               )}
             </div>
           </div>
+          </div>
         </div>
       )}
 
@@ -492,8 +494,9 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
 
       {/* Modal de Adicionar/Editar Item */}
       {isItemModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full my-8 shadow-2xl">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center p-4 py-8">
+            <div className="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl">
             <h2 className="text-2xl font-bold text-slate-800 mb-6">{editingItem ? 'Editar Produto' : 'Novo Produto'}</h2>
             <form onSubmit={handleSaveItem} className="space-y-5">
               
@@ -599,8 +602,8 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
                   {isSubmitting ? 'Salvando...' : 'Salvar Produto'}
                 </button>
               </div>
-
             </form>
+          </div>
           </div>
         </div>
       )}

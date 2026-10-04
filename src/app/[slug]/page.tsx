@@ -3,6 +3,8 @@ import { checkAuth } from '@/app/actions';
 import { notFound } from 'next/navigation';
 import { ItemList } from '@/components/ItemList';
 
+import { CopyTitle } from '@/components/CopyTitle';
+
 export const revalidate = 0; // Para garantir que os dados estejam sempre atualizados no SSR inicial se precisarmos
 
 export default async function NamespacePage({
@@ -38,7 +40,7 @@ export default async function NamespacePage({
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-lg shadow-sm border border-gray-100">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{namespace.name || slug}</h1>
+            <CopyTitle title={namespace.name || slug} />
             <p className="text-sm text-gray-500 mt-1">Catálogo de produtos</p>
           </div>
           {/* O componente ItemList vai gerenciar o botão de "Gerenciar" e os modais */}
