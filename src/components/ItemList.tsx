@@ -38,6 +38,15 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
   // View Item Modal
   const [viewingItem, setViewingItem] = useState<Item | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [copiedTitleId, setCopiedTitleId] = useState<string | null>(null);
+
+  const copyTitleOnly = (item: Item, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(item.title).then(() => {
+      setCopiedTitleId(item.id);
+      setTimeout(() => setCopiedTitleId(null), 2000);
+    });
+  };
 
   // Esc para fechar modais
   useEffect(() => {
@@ -294,9 +303,18 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
               </div>
               
               <div className="p-5 flex flex-col flex-grow">
-                <h3 className={`font-bold text-lg leading-tight mb-2 ${item.is_sold ? 'text-slate-500 line-through decoration-slate-400' : 'text-slate-800'}`}>
-                  {item.title}
-                </h3>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className={`font-bold text-lg leading-tight ${item.is_sold ? 'text-slate-500 line-through decoration-slate-400' : 'text-slate-800'}`}>
+                    {item.title}
+                  </h3>
+                  <button
+                    onClick={(e) => copyTitleOnly(item, e)}
+                    className="text-slate-400 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-indigo-50 shrink-0"
+                    title="Copiar título do produto"
+                  >
+                    {copiedTitleId === item.id ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                  </button>
+                </div>
                 
                 <p className="text-sm text-slate-500 mb-4 line-clamp-2 flex-grow">
                   {item.description || "Sem descrição"}
@@ -404,7 +422,16 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
             </div>
 
             <div className="md:w-1/2 p-6 md:p-8 flex flex-col">
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">{viewingItem.title}</h2>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <h2 className="text-2xl font-bold text-slate-800">{viewingItem.title}</h2>
+                <button
+                  onClick={(e) => copyTitleOnly(viewingItem, e)}
+                  className="text-slate-400 hover:text-indigo-600 transition-colors p-1.5 rounded-lg hover:bg-indigo-50 shrink-0"
+                  title="Copiar título do produto"
+                >
+                  {copiedTitleId === viewingItem.id ? <Check size={20} className="text-emerald-500" /> : <Copy size={20} />}
+                </button>
+              </div>
               <span className={`font-bold text-3xl mb-6 ${viewingItem.is_sold ? 'text-slate-500' : 'text-emerald-600'}`}>
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(viewingItem.price)}
               </span>
