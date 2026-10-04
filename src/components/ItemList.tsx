@@ -2,8 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { authenticateNamespace, logoutNamespace, createItem, updateItem, deleteItem, toggleItemSold } from '@/app/actions';
-import { Lock, Unlock, Plus, Pencil, Trash2, LogOut, Image as ImageIcon, Tag, Copy, Check, Download, ExternalLink } from 'lucide-react';
+import { Lock, Unlock, Plus, Pencil, Trash2, LogOut, Image as ImageIcon, Tag, Copy, Check, Download, ExternalLink, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+
+const parseImages = (urlStr: string | null | undefined): string[] => {
+  if (!urlStr) return [];
+  try {
+    const parsed = JSON.parse(urlStr);
+    if (Array.isArray(parsed)) return parsed;
+  } catch (e) {}
+  return urlStr.split(',').filter(Boolean);
+};
 
 type Item = {
   id: string;
@@ -47,8 +56,8 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -74,8 +83,8 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
     setTitle('');
     setDescription('');
     setPrice('');
-    setImageFile(null);
-    setImageUrl('');
+    setImageFiles([]);
+    setImageUrls([]);
     setIsItemModalOpen(true);
   };
 
@@ -85,8 +94,8 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
     setTitle(item.title);
     setDescription(item.description || '');
     setPrice(item.price.toString());
-    setImageFile(null);
-    setImageUrl(item.image_url || '');
+    setImageFiles([]);
+    setImageUrls(parseImages(item.image_url));
     setIsItemModalOpen(true);
   };
 
@@ -115,17 +124,18 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
     setIsSubmitting(true);
     
     try {
-      let finalImageUrl = imageUrl;
+      let finalImageUrls = [...imageUrls];
 
-      if (imageFile) {
-        finalImageUrl = await handleImageUpload(imageFile);
+      if (imageFiles.length > 0) {
+        const newUploadedUrls = await Promise.all(imageFiles.map(file => handleImageUpload(file)));
+        finalImageUrls = [...finalImageUrls, ...newUploadedUrls];
       }
 
       const formData = new FormData();
       formData.append('title', title);
       formData.append('description', description);
       formData.append('price', price);
-      formData.append('image_url', finalImageUrl);
+      formData.append('image_url', JSON.stringify(finalImageUrls));
 
       let res;
       if (editingItem) {
@@ -251,17 +261,31 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
               )}
 
               <div className="relative overflow-hidden aspect-square">
-                {item.image_url ? (
-                  <img 
-                    src={item.image_url} 
-                    alt={item.title} 
-                    className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${item.is_sold ? 'grayscale-[60%]' : ''}`} 
-                  />
-                ) : (
-                  <div className={`w-full h-full bg-slate-50 flex items-center justify-center ${item.is_sold ? 'grayscale-[60%]' : ''}`}>
-                    <ImageIcon className="text-slate-300" size={48} />
-                  </div>
-                )}
+                {(() => {
+                  const urls = parseImages(item.image_url);
+                  if (urls.length > 0) {
+                    return (
+                      <>
+                        <img 
+                          src={urls[0]} 
+                          alt={item.title} 
+                          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${item.is_sold ? 'grayscale-[60%]' : ''}`} 
+                        />
+                        {urls.length > 1 && (
+                          <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm shadow flex items-center gap-1">
+                            <ImageIcon size={12} /> +{urls.length - 1}
+                          </div>
+                        )}
+                      </>
+                    );
+                  } else {
+                    return (
+                      <div className={`w-full h-full bg-slate-50 flex items-center justify-center ${item.is_sold ? 'grayscale-[60%]' : ''}`}>
+                        <ImageIcon className="text-slate-300" size={48} />
+                      </div>
+                    );
+                  }
+                })()}
                 {item.is_sold && <div className="absolute inset-0 bg-white/20"></div>}
               </div>
               
@@ -326,37 +350,52 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
                   VENDIDO
                 </div>
               )}
-              {viewingItem.image_url ? (
-                <>
-                  <img 
-                    src={viewingItem.image_url} 
-                    alt={viewingItem.title} 
-                    className={`w-full h-full object-cover ${viewingItem.is_sold ? 'grayscale-[60%]' : ''}`} 
-                  />
-                  <div className="absolute bottom-4 right-4 flex gap-2">
-                    <button 
-                      onClick={() => handleDownloadImage(viewingItem.image_url, viewingItem.title)}
-                      className="bg-white/90 backdrop-blur-sm text-slate-800 p-2 rounded-lg shadow-md hover:bg-white transition-all flex items-center justify-center"
-                      title="Baixar imagem"
-                    >
-                      <Download size={18} />
-                    </button>
-                    <a 
-                      href={viewingItem.image_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="bg-white/90 backdrop-blur-sm text-slate-800 p-2 rounded-lg shadow-md hover:bg-white transition-all flex items-center justify-center"
-                      title="Abrir original"
-                    >
-                      <ExternalLink size={18} />
-                    </a>
+              {(() => {
+                const urls = parseImages(viewingItem.image_url);
+                if (urls.length > 0) {
+                  return (
+                    <div className="flex overflow-x-auto snap-x snap-mandatory w-full h-full hide-scrollbar">
+                      {urls.map((url, idx) => (
+                        <div key={idx} className="min-w-full h-full snap-start relative">
+                          <img 
+                            src={url} 
+                            alt={viewingItem.title} 
+                            className={`w-full h-full object-cover ${viewingItem.is_sold ? 'grayscale-[60%]' : ''}`} 
+                          />
+                          <div className="absolute bottom-4 right-4 flex gap-2">
+                            <button 
+                              onClick={() => handleDownloadImage(url, `${viewingItem.title}-${idx}`)}
+                              className="bg-white/90 backdrop-blur-sm text-slate-800 p-2 rounded-lg shadow-md hover:bg-white transition-all flex items-center justify-center"
+                              title="Baixar imagem"
+                            >
+                              <Download size={18} />
+                            </button>
+                            <a 
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="bg-white/90 backdrop-blur-sm text-slate-800 p-2 rounded-lg shadow-md hover:bg-white transition-all flex items-center justify-center"
+                              title="Abrir original"
+                            >
+                              <ExternalLink size={18} />
+                            </a>
+                          </div>
+                          {urls.length > 1 && (
+                            <div className="absolute top-4 right-4 bg-black/50 text-white px-2 py-1 rounded text-sm font-bold backdrop-blur-sm shadow-md">
+                              {idx + 1} / {urls.length}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+                return (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ImageIcon className="text-slate-300" size={64} />
                   </div>
-                </>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <ImageIcon className="text-slate-300" size={64} />
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             <div className="md:w-1/2 p-6 md:p-8 flex flex-col">
@@ -433,7 +472,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
                   autoFocus
                   value={authCode}
                   onChange={e => setAuthCode(e.target.value)}
-                  className="w-full p-4 border border-slate-200 rounded-xl text-center text-3xl tracking-[1em] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-mono"
+                  className="w-full p-4 border border-slate-200 rounded-xl text-center text-3xl tracking-[1em] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-mono text-slate-900"
                   placeholder="••••"
                 />
                 {authError && <p className="text-rose-500 text-sm mt-2 text-center font-medium">{authError}</p>}
@@ -461,7 +500,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
                   required
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900"
                   placeholder="Ex: iPhone 13 Pro"
                 />
               </div>
@@ -474,7 +513,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
                   required
                   value={price}
                   onChange={e => setPrice(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900"
                   placeholder="0.00"
                 />
               </div>
@@ -485,22 +524,56 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
                   rows={4}
                   value={description}
                   onChange={e => setDescription(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none text-slate-900"
                   placeholder="Detalhes do produto..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Foto do Produto</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Fotos do Produto</label>
                 <input 
                   type="file" 
                   accept="image/*"
-                  onChange={e => setImageFile(e.target.files?.[0] || null)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-all cursor-pointer"
+                  multiple
+                  onChange={e => {
+                    if (e.target.files) {
+                      setImageFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                    }
+                  }}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-all cursor-pointer text-slate-900"
                 />
-                {imageUrl && !imageFile && (
-                  <div className="mt-3 relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200">
-                    <img src={imageUrl} alt="Atual" className="w-full h-full object-cover" />
+                
+                {(imageUrls.length > 0 || imageFiles.length > 0) && (
+                  <div className="mt-3 flex gap-2 flex-wrap">
+                    {imageUrls.map((url, i) => (
+                      <div key={`url-${i}`} className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 group">
+                        <img src={url} alt={`Atual ${i + 1}`} className="w-full h-full object-cover" />
+                        <button 
+                          type="button" 
+                          onClick={() => setImageUrls(prev => prev.filter((_, index) => index !== i))} 
+                          className="absolute top-1 right-1 bg-rose-500/90 hover:bg-rose-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                          title="Remover imagem"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    {imageFiles.map((file, i) => (
+                      <div key={`file-${i}`} className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 group">
+                        <img src={URL.createObjectURL(file)} alt={`Nova ${i + 1}`} className="w-full h-full object-cover opacity-80" />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="bg-black/50 text-white text-[10px] font-bold px-2 py-0.5 rounded backdrop-blur-sm">NOVA</span>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setImageFiles(prev => prev.filter((_, index) => index !== i))} 
+                          className="absolute top-1 right-1 bg-rose-500/90 hover:bg-rose-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                          title="Remover nova imagem"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
