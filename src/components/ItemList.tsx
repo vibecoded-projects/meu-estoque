@@ -259,7 +259,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
           <p className="text-slate-400 text-sm mt-1">Sua vitrine está vazia no momento.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
           {items.map(item => (
             <div 
               key={item.id} 
@@ -268,7 +268,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
             >
               {/* Badge de Vendido */}
               {item.is_sold && (
-                <div className="absolute top-3 left-3 bg-rose-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md z-10 tracking-wider">
+                <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-rose-600 text-white text-[10px] sm:text-xs font-bold px-2 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-md z-10 tracking-wider">
                   VENDIDO
                 </div>
               )}
@@ -302,9 +302,9 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
                 {item.is_sold && <div className="absolute inset-0 bg-white/20"></div>}
               </div>
               
-              <div className="p-5 flex flex-col flex-grow">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className={`font-bold text-lg leading-tight ${item.is_sold ? 'text-slate-500 line-through decoration-slate-400' : 'text-slate-800'}`}>
+              <div className="p-3 sm:p-5 flex flex-col flex-grow">
+                <div className="flex items-start justify-between gap-1 sm:gap-2 mb-1 sm:mb-2">
+                  <h3 className={`font-bold text-sm sm:text-lg leading-tight ${item.is_sold ? 'text-slate-500 line-through decoration-slate-400' : 'text-slate-800'}`}>
                     {item.title}
                   </h3>
                   <button
@@ -316,12 +316,12 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
                   </button>
                 </div>
                 
-                <p className="text-sm text-slate-500 mb-4 line-clamp-2 flex-grow">
+                <p className="text-xs sm:text-sm text-slate-500 mb-2 sm:mb-4 line-clamp-2 flex-grow">
                   {item.description || "Sem descrição"}
                 </p>
                 
-                <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
-                  <span className={`font-bold text-xl ${item.is_sold ? 'text-slate-500' : 'text-emerald-600'}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mt-auto pt-3 sm:pt-4 border-t border-slate-100">
+                  <span className={`font-bold text-base sm:text-xl ${item.is_sold ? 'text-slate-500' : 'text-emerald-600'}`}>
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.price)}
                   </span>
                   
