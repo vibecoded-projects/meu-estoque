@@ -1,3 +1,4 @@
+/* eslint-disable */
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zrmlyviorojcvjcahjmo.supabase.co';
@@ -34,3 +35,5 @@ async function run() {
 }
 
 run();
+/* eslint-disable */
+

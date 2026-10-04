@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 export type ActionResponse = {
   success: boolean;
   message: string;
-  data?: any;
+  data?: unknown;
 };
 
 // Verifica se o código de 4 dígitos é válido para aquele namespace
