@@ -217,7 +217,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
             className="flex items-center gap-2 bg-slate-800 text-white px-5 py-2.5 rounded-lg hover:bg-slate-700 active:scale-95 transition-all shadow-sm font-medium"
           >
             <Lock size={18} />
-            Acesso Restrito
+            Editar Itens
           </button>
         ) : (
           <div className="flex gap-3">
@@ -460,7 +460,7 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth }: {
             <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-6 mx-auto">
               <Unlock size={24} className="text-slate-700" />
             </div>
-            <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">Acesso Restrito</h2>
+            <h2 className="text-2xl font-bold text-center text-slate-800 mb-2">Editar Itens</h2>
             <p className="text-center text-slate-500 mb-6 text-sm">Insira o PIN da loja para editar os itens.</p>
             
             <form onSubmit={handleAuth}>
