@@ -224,10 +224,30 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth, nam
     try {
       const response = await fetch(url);
       const blob = await response.blob();
+      
+      const fileNameStr = `${filename.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.jpg`;
+      
+      // Attempt to use Web Share API for mobile devices (allows saving directly to gallery)
+      if (navigator.canShare) {
+        const file = new File([blob], fileNameStr, { type: blob.type });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: filename,
+            });
+            return; // Se compartilhou/salvou com sucesso, não precisa fazer o download tradicional
+          } catch (shareError) {
+            console.log("Compartilhamento cancelado ou falhou:", shareError);
+            // Se falhar ou cancelar, continua para o download padrão abaixo
+          }
+        }
+      }
+
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `${filename.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.jpg`;
+      link.download = fileNameStr;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
