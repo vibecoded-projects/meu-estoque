@@ -239,11 +239,12 @@ export function ItemList({ initialItems, slug, isAuthenticated: initialAuth, nam
             return; // Se compartilhou/salvou com sucesso, não precisa fazer o download tradicional
           } catch (shareError) {
             console.log("Compartilhamento cancelado ou falhou:", shareError);
-            // Se falhar ou cancelar, continua para o download padrão abaixo
+            return; // Se o usuário cancelar, interrompe a ação sem forçar o download tradicional
           }
         }
       }
 
+      // Fallback para download tradicional (Desktop ou navegadores sem suporte ao Web Share de arquivos)
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
