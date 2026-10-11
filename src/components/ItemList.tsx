@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { authenticateNamespace, logoutNamespace, createItem, updateItem, deleteItem, toggleItemSold, updateNamespace } from '@/app/actions';
 import { Lock, Unlock, Plus, Pencil, Trash2, LogOut, Image as ImageIcon, Tag, Copy, Check, Download, ExternalLink, X, Save, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import type { Item, Namespace } from '@/lib/types';
 
 const parseImages = (urlStr: string | null | undefined): string[] => {
   if (!urlStr) return [];
@@ -12,22 +13,6 @@ const parseImages = (urlStr: string | null | undefined): string[] => {
     if (Array.isArray(parsed)) return parsed;
   } catch (e) {}
   return urlStr.split(',').filter(Boolean);
-};
-
-type Item = {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  image_url: string;
-  is_sold: boolean;
-};
-
-type Namespace = {
-  id: string;
-  slug: string;
-  name: string;
-  subtitle?: string;
 };
 
 export function ItemList({ initialItems, slug, isAuthenticated: initialAuth, namespace: initialNamespace }: { initialItems: Item[], slug: string, isAuthenticated: boolean, namespace: Namespace }) {
