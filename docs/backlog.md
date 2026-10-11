@@ -140,7 +140,7 @@ flowchart LR
 
 ## Fase 1 — Conversão e WhatsApp (MVP de vendas)
 
-### T06 — Rebranding StokFácil ⬜
+### T06 — Rebranding StokFácil 🔄
 - **Requisitos:** RF01 · **Depende de:** T05 · **Decisão:** D8
 - **Arquivos:** `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/[slug]/page.tsx`, componentes de `store/`
 - **Escopo:** nome "StokFácil" e slogan *"Seu estoque no bolso, suas vendas no WhatsApp"*; `metadata` com `metadataBase` (`NEXT_PUBLIC_SITE_URL`), OpenGraph e Twitter; `generateMetadata` em `/[slug]` com nome da loja; `lang="pt-BR"`; rodapé da vitrine *"Criado com StokFácil — Crie sua vitrine grátis"* linkando para `/`.
@@ -149,7 +149,7 @@ flowchart LR
   - [ ] HTML de `/loja-carol` contém `og:title` com o nome da loja.
   - [ ] build + lint passam.
 
-### T07 — Configuração do WhatsApp e Instagram da loja ⬜
+### T07 — Configuração do WhatsApp e Instagram da loja 🔄
 - **Requisitos:** RF10 · **Depende de:** T02, T03 (aplicada), T05
 - **Arquivos:** `src/lib/phone.ts` (novo) + teste, `src/app/actions.ts`, `src/components/store/StoreHeader.tsx` (ou modal de configurações)
 - **Escopo:** `normalizeBrazilianPhone(input)` → `55DDNNNNNNNNN` ou `null`; `updateNamespace` aceita `whatsapp` e `instagram_handle` (sem `@`); UI de edição no modo autenticado.
