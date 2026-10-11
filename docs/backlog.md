@@ -86,7 +86,7 @@ flowchart LR
   - [ ] `npm run build` e `npm run lint` passam.
 - **Fora do escopo:** mudar o formato do cookie (T02).
 
-### T02 — Sessão assinada (cookie sem PIN em texto puro) 🔄
+### T02 — Sessão assinada (cookie sem PIN em texto puro) ✅
 - **Requisitos:** RNF05 · **Depende de:** T01 · **Decisão:** D1
 - **Arquivos:** `src/lib/session.ts` (novo, `server-only`), `src/app/actions.ts`, `.env.example`
 - **Escopo:**
