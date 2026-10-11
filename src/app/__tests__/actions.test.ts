@@ -15,6 +15,17 @@ import {
   parsePrice,
   getFirstZodErrorMessage,
 } from '@/lib/validation';
+import { signToken, verifyToken } from '@/lib/session';
+
+function setAuthenticatedSessionCookie(slug = 'loja-carol'): string {
+  const token = signToken({
+    slug,
+    purpose: 'session',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  });
+  cookiesMap.set(`auth_${slug}`, token);
+  return token;
+}
 
 // Estrutura para capturar todas as queries executadas no supabaseAdmin
 interface RecordedQuery {
@@ -157,8 +168,8 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
 
   describe('(1) Tenant Isolation em items', () => {
     beforeEach(() => {
-      // Simula usuário autenticado na loja-carol
-      cookiesMap.set('auth_loja-carol', '1234');
+      // Simula usuário autenticado na loja-carol com sessão assinada
+      setAuthenticatedSessionCookie('loja-carol');
     });
 
     it('updateItem aplica .eq("id", id) E .eq("namespace_id", store.id)', async () => {
@@ -290,11 +301,57 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
       const itemsQueries = recordedQueries.filter((q) => q.table === 'items');
       expect(itemsQueries).toHaveLength(0);
     });
+
+    it('rejeita cookie legado com PIN puro em texto (ex.: 1234) sem tocar em items', async () => {
+      cookiesMap.set('auth_loja-carol', '1234');
+      const res = await checkAuth('loja-carol');
+
+      expect(res).toBe(false);
+
+      const itemsQueries = recordedQueries.filter((q) => q.table === 'items');
+      expect(itemsQueries).toHaveLength(0);
+    });
+
+    it('rejeita token assinado para outro slug', async () => {
+      const tokenOutraLoja = signToken({
+        slug: 'loja-outra',
+        purpose: 'session',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+      cookiesMap.set('auth_loja-carol', tokenOutraLoja);
+
+      const res = await checkAuth('loja-carol');
+      expect(res).toBe(false);
+    });
+
+    it('rejeita token com purpose diferente de session (ex.: magic)', async () => {
+      const magicToken = signToken({
+        slug: 'loja-carol',
+        purpose: 'magic',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+      cookiesMap.set('auth_loja-carol', magicToken);
+
+      const res = await checkAuth('loja-carol');
+      expect(res).toBe(false);
+    });
+
+    it('rejeita token expirado no cookie de autenticação', async () => {
+      const expiredToken = signToken({
+        slug: 'loja-carol',
+        purpose: 'session',
+        exp: Math.floor(Date.now() / 1000) - 30, // 30 segundos atrás
+      });
+      cookiesMap.set('auth_loja-carol', expiredToken);
+
+      const res = await checkAuth('loja-carol');
+      expect(res).toBe(false);
+    });
   });
 
   describe('(3) Validação de entradas e mensagens em PT-BR', () => {
     beforeEach(() => {
-      cookiesMap.set('auth_loja-carol', '1234');
+      setAuthenticatedSessionCookie('loja-carol');
     });
 
     it('rejeita preço NaN em createItem com mensagem PT-BR sem tocar em items', async () => {
@@ -361,7 +418,7 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
 
   describe('(4) Caminho feliz de createItem e outras actions', () => {
     beforeEach(() => {
-      cookiesMap.set('auth_loja-carol', '1234');
+      setAuthenticatedSessionCookie('loja-carol');
     });
 
     it('cria item com sucesso associado ao namespace_id da loja e revalida o path', async () => {
@@ -399,12 +456,22 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
       expect(revalidatePathMock).toHaveBeenCalledWith('/loja-carol');
     });
 
-    it('authenticateNamespace autentica com sucesso e salva o cookie', async () => {
+    it('authenticateNamespace valida PIN no banco, não expõe PIN no cookie e grava token assinado válido', async () => {
       const res = await authenticateNamespace('loja-carol', '1234');
 
       expect(res.success).toBe(true);
       expect(res.message).toBe('Autenticado com sucesso!');
-      expect(cookiesMap.get('auth_loja-carol')).toBe('1234');
+
+      const cookieVal = cookiesMap.get('auth_loja-carol');
+      expect(cookieVal).toBeDefined();
+      expect(cookieVal).not.toBe('1234');
+      expect(cookieVal).not.toContain('1234');
+
+      const isTokenValid = verifyToken(cookieVal!, {
+        slug: 'loja-carol',
+        purpose: 'session',
+      });
+      expect(isTokenValid).toBe(true);
     });
 
     it('checkAuth retorna true para lojista autenticado e false para deslogado', async () => {
@@ -415,7 +482,8 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
     });
 
     it('logoutNamespace deleta o cookie e revalida o path', async () => {
-      expect(cookiesMap.get('auth_loja-carol')).toBe('1234');
+      const token = setAuthenticatedSessionCookie('loja-carol');
+      expect(cookiesMap.get('auth_loja-carol')).toBe(token);
 
       await logoutNamespace('loja-carol');
 

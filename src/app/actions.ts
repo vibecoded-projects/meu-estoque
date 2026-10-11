@@ -8,6 +8,11 @@ import {
   updateNamespaceSchema,
   getFirstZodErrorMessage,
 } from '@/lib/validation';
+import {
+  signToken,
+  verifyToken,
+  SESSION_DURATION_SECONDS,
+} from '@/lib/session';
 
 // Tipagem base
 export type ActionResponse = {
@@ -21,8 +26,15 @@ type RequireStoreResult =
   | { success: false; error: string };
 
 /**
- * Valida a autenticação do lojista via cookie e recupera os dados do namespace.
+ * Valida a autenticação do lojista via cookie assinado e recupera os dados do namespace.
  * Função estritamente interna (não exportada) para não expor endpoint de Server Action.
+ *
+ * NOTA DE SEGURANÇA E CICLO DE VIDA (D1):
+ * A validação é criptográfica via HMAC-SHA256 do token gravado no cookie auth_<slug>.
+ * Caso o PIN da loja seja alterado após o lojista já estar logado, sessões emitidas
+ * continuam válidas até sua expiração natural (7 dias) ou logout explícito.
+ * Cookies legados que continham o PIN em texto puro falham na verificação da assinatura
+ * e exigem novo login.
  */
 async function requireStore(slug: string): Promise<RequireStoreResult> {
   if (!slug || typeof slug !== 'string') {
@@ -30,8 +42,13 @@ async function requireStore(slug: string): Promise<RequireStoreResult> {
   }
 
   const cookieStore = await cookies();
-  const code = cookieStore.get(`auth_${slug}`)?.value;
-  if (!code) {
+  const token = cookieStore.get(`auth_${slug}`)?.value;
+  if (!token) {
+    return { success: false, error: 'Não autorizado.' };
+  }
+
+  const isTokenValid = verifyToken(token, { slug, purpose: 'session' });
+  if (!isTokenValid) {
     return { success: false, error: 'Não autorizado.' };
   }
 
@@ -43,17 +60,6 @@ async function requireStore(slug: string): Promise<RequireStoreResult> {
 
   if (nsError || !namespace) {
     return { success: false, error: 'Loja não encontrada.' };
-  }
-
-  const { data: validCode, error: codeError } = await supabaseAdmin
-    .from('namespace_codes')
-    .select('id')
-    .eq('namespace_id', namespace.id)
-    .eq('code', code)
-    .single();
-
-  if (codeError || !validCode) {
-    return { success: false, error: 'Não autorizado.' };
   }
 
   return {
@@ -90,13 +96,21 @@ export async function authenticateNamespace(slug: string, code: string): Promise
     return { success: false, message: 'Código inválido.' };
   }
 
-  // 3. Salvar no cookie (dura a sessão/algumas horas)
+  // 3. Gerar token assinado de sessão (7 dias de validade)
+  const now = Math.floor(Date.now() / 1000);
+  const token = signToken({
+    slug,
+    purpose: 'session',
+    exp: now + SESSION_DURATION_SECONDS,
+  });
+
+  // 4. Salvar no cookie (dura a sessão/7 dias)
   const cookieStore = await cookies();
-  cookieStore.set(`auth_${slug}`, code, {
+  cookieStore.set(`auth_${slug}`, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7 // 1 semana
+    maxAge: SESSION_DURATION_SECONDS,
   });
 
   return { success: true, message: 'Autenticado com sucesso!' };
