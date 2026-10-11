@@ -118,7 +118,7 @@ flowchart LR
   - [x] Alias `@/` funciona nos testes.
   - [x] build + lint continuam passando (arquivos de teste não quebram o build).
 
-### T04b — Infraestrutura de testes E2E no navegador (Playwright) 🔄
+### T04b — Infraestrutura de testes E2E no navegador (Playwright) ✅
 - **Depende de:** T04 · **Decisão:** D10
 - **Arquivos:** `package.json`, `playwright.config.ts` (novo), `e2e/*.spec.ts` (novos)
 - **Escopo:** Playwright (Chromium desktop + emulação **iPhone 13** e **Pixel 7**) subindo o app via `webServer`. Testes de caracterização do comportamento **atual**: home carrega; vitrine `/loja-carol` lista produtos; modal do produto abre; login com PIN inválido mostra erro; login válido entra no modo de edição; logout. Fluxos de escrita usam a loja de testes (D10) e limpam o que criam.
