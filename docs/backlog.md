@@ -222,7 +222,7 @@ flowchart LR
 
 ## Fase 2 — Anti-fricção, Trial e Performance
 
-### T14 — Biblioteca de ciclo de vida da loja 🔄
+### T14 — Biblioteca de ciclo de vida da loja ✅
 - **Requisitos:** RF13, RF15 · **Depende de:** T03, T04 · **Decisões:** D4, D5
 - **Arquivos:** `src/lib/lifecycle.ts` (novo) + testes
 - **Escopo:** `getStoreLifecycle(ns, now)` → `{ state: 'active'|'grace'|'paused'|'blocked', daysLeft, canEdit, isPublic, showRenewalBanner }`. Regras: plano pago válido → active; trial ativo → active; até 7 dias após expirar → grace (sem edição, público); depois → paused; `status = 'blocked'` → blocked. Banner quando `daysLeft ≤ 5`.
