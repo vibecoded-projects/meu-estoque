@@ -22,7 +22,8 @@ Estas decisões fecham lacunas que o blueprint deixou em aberto. São **revisáv
 | **D6** | **Leads:** inseridos apenas pela Server Action usando service role. **Não** haverá policy pública de `INSERT` em `leads` (o blueprint propunha `WITH CHECK (true)`, o que permitiria spam direto pela anon key). | T03, T10 |
 | **D7** | **Migrações** ficam em `supabase/migrations/NNN_nome.sql`, são idempotentes e **aplicadas manualmente pelo dono** no SQL Editor do Supabase. Agentes nunca executam SQL no banco remoto. | T03, T21 |
 | **D8** | **Contatos do operador** via env: `NEXT_PUBLIC_ADMIN_WHATSAPP` (somente dígitos com DDI, ex.: `5511999999999`) e `NEXT_PUBLIC_SITE_URL`. | T05, T10, T14, T19 |
-| **D9** | **Testes unitários** com Vitest para lógica pura (`src/lib/**`). UI é validada por build + lint + smoke test + checklist manual. | T04 em diante |
+| **D9** | **Testes obrigatórios em toda tarefa** (regra do dono): lógica pura → Vitest; Server Actions → Vitest com Supabase/`next/headers` mockados; SQL → Vitest + PGlite (Postgres em memória); UI → Playwright E2E (desktop + iPhone/Android emulados). Tarefa sem teste não é aprovada. | Todas |
+| **D10** | **Dados dos E2E:** leitura pode usar `loja-carol`; fluxos de escrita usam uma loja dedicada `e2e-teste` (PIN em `E2E_STORE_PIN`) e limpam o que criam. Nunca escrever em lojas reais. | T04b em diante |
 
 ### Problemas encontrados no código atual (corrigidos na Fase 0)
 - **IDOR entre lojas:** `updateItem`, `deleteItem` e `toggleItemSold` filtram apenas por `id`, sem `namespace_id`. Qualquer lojista autenticado pode alterar itens de outra loja. → **T01**
@@ -71,7 +72,7 @@ flowchart LR
 
 ## Fase 0 — Fundação (pré-requisito de tudo)
 
-### T01 — Isolamento de tenant e validação nas Server Actions ⬜
+### T01 — Isolamento de tenant e validação nas Server Actions ✅
 - **Requisitos:** RNF06 · **Depende de:** —
 - **Arquivos:** `src/app/actions.ts`, `src/lib/validation.ts` (novo)
 - **Escopo:**
@@ -85,7 +86,7 @@ flowchart LR
   - [ ] `npm run build` e `npm run lint` passam.
 - **Fora do escopo:** mudar o formato do cookie (T02).
 
-### T02 — Sessão assinada (cookie sem PIN em texto puro) ⬜
+### T02 — Sessão assinada (cookie sem PIN em texto puro) 🔄
 - **Requisitos:** RNF05 · **Depende de:** T01 · **Decisão:** D1
 - **Arquivos:** `src/lib/session.ts` (novo, `server-only`), `src/app/actions.ts`, `.env.example`
 - **Escopo:**
@@ -98,7 +99,7 @@ flowchart LR
   - [ ] Testes Vitest para `signToken`/`verifyToken` (se T04 já concluída).
   - [ ] build + lint passam.
 
-### T03 — Migração 001 e tipos compartilhados ⬜
+### T03 — Migração 001 e tipos compartilhados ✅ (aguardando aplicação no Supabase)
 - **Requisitos:** RF03, RF04, RF13 · **Depende de:** — · **Decisões:** D3, D4, D5, D6, D7
 - **Arquivos:** `supabase/migrations/001_stokfacil_base.sql` (novo), `src/lib/types.ts` (novo)
 - **Escopo:**
@@ -109,22 +110,31 @@ flowchart LR
   - [ ] Nenhum `any` novo; build + lint passam.
 - **Ação do dono:** aplicar o SQL no Supabase antes de T07.
 
-### T04 — Infraestrutura de testes unitários (Vitest) ⬜
+### T04 — Infraestrutura de testes unitários (Vitest) ✅
 - **Depende de:** — · **Decisão:** D9
 - **Arquivos:** `package.json`, `vitest.config.ts` (novo), `src/lib/__tests__/smoke.test.ts`
 - **Critérios de aceite:**
-  - [ ] `npm test` roda Vitest uma vez (sem watch) e passa.
-  - [ ] Alias `@/` funciona nos testes.
-  - [ ] build + lint continuam passando (arquivos de teste não quebram o build).
+  - [x] `npm test` roda Vitest uma vez (sem watch) e passa.
+  - [x] Alias `@/` funciona nos testes.
+  - [x] build + lint continuam passando (arquivos de teste não quebram o build).
+
+### T04b — Infraestrutura de testes E2E no navegador (Playwright) 🔄
+- **Depende de:** T04 · **Decisão:** D10
+- **Arquivos:** `package.json`, `playwright.config.ts` (novo), `e2e/*.spec.ts` (novos)
+- **Escopo:** Playwright (Chromium desktop + emulação **iPhone 13** e **Pixel 7**) subindo o app via `webServer`. Testes de caracterização do comportamento **atual**: home carrega; vitrine `/loja-carol` lista produtos; modal do produto abre; login com PIN inválido mostra erro; login válido entra no modo de edição; logout. Fluxos de escrita usam a loja de testes (D10) e limpam o que criam.
+- **Critérios de aceite:**
+  - [ ] `npm run test:e2e` passa localmente.
+  - [ ] Nenhum teste escreve na loja `loja-carol`.
 
 ### T05 — Decompor `ItemList.tsx` sem mudar comportamento ⬜
-- **Depende de:** T01, T03
+- **Depende de:** T01, T03, T04b (os E2E de caracterização protegem a refatoração)
 - **Arquivos:** `src/components/ItemList.tsx`, `src/components/store/*` (novos)
 - **Escopo:** extrair, sem alterar visual/comportamento: `StoreHeader`, `AuthModal`, `ItemFormModal`, `ProductModal`, `ItemCard`/`ItemRow`, e utilitários (`parseImages`, formatação de preço, download/share de imagem) para `src/lib/`.
 - **Critérios de aceite:**
   - [ ] `ItemList.tsx` < 250 linhas, atuando como orquestrador de estado.
   - [ ] Nenhuma mudança visual ou de texto (diff de JSX apenas movido).
-  - [ ] build + lint passam; smoke test `/` e `/loja-carol` retornam 200.
+  - [ ] Testes unitários dos utilitários extraídos; todos os E2E de T04b continuam passando sem alteração.
+  - [ ] build + lint passam.
 
 ---
 
@@ -212,7 +222,7 @@ flowchart LR
 
 ## Fase 2 — Anti-fricção, Trial e Performance
 
-### T14 — Biblioteca de ciclo de vida da loja ⬜
+### T14 — Biblioteca de ciclo de vida da loja 🔄
 - **Requisitos:** RF13, RF15 · **Depende de:** T03, T04 · **Decisões:** D4, D5
 - **Arquivos:** `src/lib/lifecycle.ts` (novo) + testes
 - **Escopo:** `getStoreLifecycle(ns, now)` → `{ state: 'active'|'grace'|'paused'|'blocked', daysLeft, canEdit, isPublic, showRenewalBanner }`. Regras: plano pago válido → active; trial ativo → active; até 7 dias após expirar → grace (sem edição, público); depois → paused; `status = 'blocked'` → blocked. Banner quando `daysLeft ≤ 5`.
@@ -235,7 +245,7 @@ flowchart LR
 - **Escopo:** banner (só autenticado) com dias restantes e botão "Renovar no WhatsApp (via Pix)" para o admin com mensagem pré-formatada (loja, slug, plano). Em `grace`, banner vermelho informando que a edição está bloqueada.
 - **Critérios de aceite:** [ ] build + lint passam; [ ] visitante nunca vê o banner.
 
-### T17 — Parser inteligente de lote ⬜
+### T17 — Parser inteligente de lote ✅
 - **Requisitos:** RF06, blueprint 3.3 · **Depende de:** T04
 - **Arquivos:** `src/lib/batchParser.ts` (novo) + testes
 - **Escopo:** `parseBatch(text)` → `{ title, price, description, error? }[]`. Suporta `R$ 89,90`, `89,90`, `120.00`, `45 reais`, `R$50`, `1.299,90`; remove numeração (`1.`, `1)`, `-`, `•`); linhas vazias ignoradas; linha sem preço → `price: null` com aviso.
@@ -291,8 +301,16 @@ flowchart LR
 
 1. Ler esta tarefa, o blueprint e o `AGENTS.md` (Next.js 16: consultar `node_modules/next/dist/docs/` antes de usar APIs do framework).
 2. Alterar **somente** os arquivos do escopo (criar novos quando indicado).
-3. Rodar `npm run lint`, `npm run build` e `npm test` (quando existir).
-4. **Não** commitar, **não** executar SQL no banco remoto, **não** alterar `.env.local`.
-5. Reportar: arquivos alterados, decisões tomadas, desvios do escopo e resultado dos comandos.
+3. **Escrever testes para tudo que foi implementado** (D9): unitários/integração com Vitest e, se houver UI, E2E com Playwright. Os critérios de aceite de cada tarefa devem estar cobertos por pelo menos um teste.
+4. Rodar `npx tsc --noEmit`, `npm run lint`, `npm test` e, em tarefas de UI, `npm run test:e2e`.
+5. **Não** commitar, **não** executar SQL no banco remoto, **não** alterar `.env.local`.
+6. Reportar: arquivos alterados, testes criados (o que cada um cobre), decisões tomadas, desvios do escopo e resultado dos comandos.
+
+### Definition of Done (verificada pelo orquestrador)
+- [ ] Diff revisado e restrito ao escopo.
+- [ ] Testes novos cobrindo os critérios de aceite; `npm test` passa.
+- [ ] `npm run test:e2e` passa (a partir de T04b).
+- [ ] `npm run build` e `npm run lint` (0 erros) passam.
+- [ ] Itens que só podem ser validados em aparelho real (ex.: HEIC no iPhone, WebView do Instagram) entram no checklist manual da tarefa.
 
 O orquestrador revisa o diff, roda as verificações novamente, atualiza o status aqui e faz o commit.
