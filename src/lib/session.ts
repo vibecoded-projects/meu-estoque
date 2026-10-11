@@ -259,3 +259,74 @@ export function verifyToken(
 
   return true;
 }
+
+/**
+ * Cria um token de Magic Link assinado para a loja identificada por slug (Decisão D2).
+ *
+ * O token tem purpose 'magic' e validade padrão de 7 dias (SESSION_DURATION_SECONDS).
+ * Reutilizável até sua expiração natural.
+ *
+ * @param slug Identificador único da loja.
+ * @param expiresInSeconds Duração da validade em segundos (padrão: 7 dias = 604800s).
+ * @param secretOverride Segredo opcional para testes unitários.
+ */
+export function createMagicToken(
+  slug: string,
+  expiresInSeconds: number = SESSION_DURATION_SECONDS,
+  secretOverride?: string
+): string {
+  if (!slug || typeof slug !== 'string' || slug.trim().length === 0) {
+    throw new Error('Slug inválido para createMagicToken.');
+  }
+
+  if (
+    typeof expiresInSeconds !== 'number' ||
+    !Number.isFinite(expiresInSeconds) ||
+    expiresInSeconds <= 0
+  ) {
+    throw new Error('Duração de validade (expiresInSeconds) inválida para createMagicToken.');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  return signToken(
+    {
+      slug: slug.trim(),
+      purpose: 'magic',
+      exp: now + expiresInSeconds,
+    },
+    secretOverride
+  );
+}
+
+/**
+ * Valida a autenticidade, integridade, escopo e validade temporal de um token de Magic Link (Decisão D2).
+ *
+ * Retorna `true` se o token for válido e corresponder estritamente ao slug e ao propósito 'magic',
+ * ou `false` se qualquer verificação falhar (sem lançar exceções).
+ *
+ * @param token String no formato `payloadB64.signatureB64`.
+ * @param slug Identificador único da loja esperado.
+ * @param now Epoch em segundos atual (opcional, para testes determinísticos).
+ * @param secretOverride Segredo opcional para testes unitários.
+ */
+export function verifyMagicToken(
+  token: string,
+  slug: string,
+  now?: number,
+  secretOverride?: string
+): boolean {
+  if (!token || typeof token !== 'string' || !slug || typeof slug !== 'string') {
+    return false;
+  }
+
+  return verifyToken(
+    token,
+    {
+      slug: slug.trim(),
+      purpose: 'magic',
+    },
+    now,
+    secretOverride
+  );
+}
+

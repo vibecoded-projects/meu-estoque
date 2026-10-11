@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   signToken,
   verifyToken,
+  createMagicToken,
+  verifyMagicToken,
   decodeTokenPayload,
   getSessionSecret,
   resetSecretWarningForTests,
@@ -276,6 +278,131 @@ describe('src/lib/session.ts — Gestão de Sessões Assinadas (T02 / D1)', () =
     it('SESSION_DURATION_SECONDS equivale a exatamente 7 dias', () => {
       expect(SESSION_DURATION_SECONDS).toBe(60 * 60 * 24 * 7);
       expect(SESSION_DURATION_SECONDS).toBe(604800);
+    });
+  });
+
+  describe('createMagicToken e verifyMagicToken (T12 / D2)', () => {
+    it('(1) token válido: createMagicToken gera token válido com purpose "magic" e 7 dias de validade padrão', () => {
+      const nowBefore = Math.floor(Date.now() / 1000);
+      const token = createMagicToken('loja-carol');
+      const nowAfter = Math.floor(Date.now() / 1000);
+
+      expect(typeof token).toBe('string');
+      expect(token.split('.')).toHaveLength(2);
+
+      const decoded = decodeTokenPayload(token);
+      expect(decoded).not.toBeNull();
+      expect(decoded?.slug).toBe('loja-carol');
+      expect(decoded?.purpose).toBe('magic');
+      expect(decoded?.exp).toBeGreaterThanOrEqual(nowBefore + SESSION_DURATION_SECONDS);
+      expect(decoded?.exp).toBeLessThanOrEqual(nowAfter + SESSION_DURATION_SECONDS);
+
+      // Validação com verifyMagicToken passa
+      expect(verifyMagicToken(token, 'loja-carol')).toBe(true);
+    });
+
+    it('(2) validade customizada: createMagicToken respeita expiresInSeconds customizado', () => {
+      const nowBefore = Math.floor(Date.now() / 1000);
+      const token = createMagicToken('loja-carol', 3600);
+      const nowAfter = Math.floor(Date.now() / 1000);
+
+      const decoded = decodeTokenPayload(token);
+      expect(decoded?.exp).toBeGreaterThanOrEqual(nowBefore + 3600);
+      expect(decoded?.exp).toBeLessThanOrEqual(nowAfter + 3600);
+
+      expect(verifyMagicToken(token, 'loja-carol')).toBe(true);
+    });
+
+    it('(3) expiração: token expirado é rejeitado por verifyMagicToken', () => {
+      // Cria token com validade de 60 segundos
+      const token = createMagicToken('loja-carol', 60);
+      const decoded = decodeTokenPayload(token);
+      const tokenExp = decoded!.exp;
+
+      // Imediatamente válido
+      expect(verifyMagicToken(token, 'loja-carol', tokenExp - 10)).toBe(true);
+
+      // No instante exato de expiração -> rejeitado
+      expect(verifyMagicToken(token, 'loja-carol', tokenExp)).toBe(false);
+
+      // Após a expiração -> rejeitado
+      expect(verifyMagicToken(token, 'loja-carol', tokenExp + 1)).toBe(false);
+      expect(verifyMagicToken(token, 'loja-carol', tokenExp + 3600)).toBe(false);
+    });
+
+    it('(4) outro slug: token gerado para uma loja é rejeitado para outra', () => {
+      const tokenCarol = createMagicToken('loja-carol');
+
+      expect(verifyMagicToken(tokenCarol, 'loja-carol')).toBe(true);
+      expect(verifyMagicToken(tokenCarol, 'loja-joao')).toBe(false);
+      expect(verifyMagicToken(tokenCarol, 'outra-loja')).toBe(false);
+    });
+
+    it('(5) purpose incompatível: token de sessão não é aceito por verifyMagicToken e vice-versa', () => {
+      const now = Math.floor(Date.now() / 1000);
+
+      // Token com purpose: 'session'
+      const sessionToken = signToken({
+        slug: 'loja-carol',
+        purpose: 'session',
+        exp: now + 3600,
+      });
+
+      // verifyMagicToken deve rejeitar porque purpose é 'session' e não 'magic'
+      expect(verifyMagicToken(sessionToken, 'loja-carol')).toBe(false);
+
+      // Token com purpose: 'magic'
+      const magicToken = createMagicToken('loja-carol');
+
+      // verifyToken com purpose 'session' deve rejeitar o token magic
+      expect(verifyToken(magicToken, { slug: 'loja-carol', purpose: 'session' })).toBe(false);
+
+      // Mas verifyToken com purpose 'magic' ou verifyMagicToken aceitam
+      expect(verifyMagicToken(magicToken, 'loja-carol')).toBe(true);
+      expect(verifyToken(magicToken, { slug: 'loja-carol', purpose: 'magic' })).toBe(true);
+    });
+
+    it('(6) adulteração: alteração em payload ou assinatura invalida o token', () => {
+      const token = createMagicToken('loja-carol');
+      const [payloadB64, sigB64] = token.split('.');
+
+      // Alteração na assinatura
+      const tamperedSig = (sigB64[0] === 'x' ? 'y' : 'x') + sigB64.slice(1);
+      expect(verifyMagicToken(`${payloadB64}.${tamperedSig}`, 'loja-carol')).toBe(false);
+
+      // Alteração no payload
+      const decoded = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+      decoded.slug = 'loja-hacker';
+      const tamperedPayload = Buffer.from(JSON.stringify(decoded)).toString('base64url');
+      expect(verifyMagicToken(`${tamperedPayload}.${sigB64}`, 'loja-hacker')).toBe(false);
+    });
+
+    it('(7) segredo diferente: token assinado com segredo divergente é rejeitado', () => {
+      const token = createMagicToken('loja-carol', 3600, 'segredo-diferente-123-abc');
+      expect(verifyMagicToken(token, 'loja-carol')).toBe(false);
+
+      // Mas com o segredo correto explicitado no override, é válido
+      expect(verifyMagicToken(token, 'loja-carol', undefined, 'segredo-diferente-123-abc')).toBe(true);
+    });
+
+    it('(8) entradas inválidas para createMagicToken lançam erros claros', () => {
+      expect(() => createMagicToken('')).toThrowError(/Slug inválido/);
+      expect(() => createMagicToken('   ')).toThrowError(/Slug inválido/);
+      expect(() => createMagicToken(null as unknown as string)).toThrowError(/Slug inválido/);
+
+      expect(() => createMagicToken('loja-carol', 0)).toThrowError(/Duração de validade/);
+      expect(() => createMagicToken('loja-carol', -100)).toThrowError(/Duração de validade/);
+      expect(() => createMagicToken('loja-carol', NaN)).toThrowError(/Duração de validade/);
+      expect(() => createMagicToken('loja-carol', Infinity)).toThrowError(/Duração de validade/);
+    });
+
+    it('(9) entradas inválidas para verifyMagicToken retornam false com segurança', () => {
+      expect(verifyMagicToken('', 'loja-carol')).toBe(false);
+      expect(verifyMagicToken('sem-ponto', 'loja-carol')).toBe(false);
+      expect(verifyMagicToken('a.b.c', 'loja-carol')).toBe(false);
+      expect(verifyMagicToken(null as unknown as string, 'loja-carol')).toBe(false);
+      expect(verifyMagicToken(createMagicToken('loja-carol'), '')).toBe(false);
+      expect(verifyMagicToken(createMagicToken('loja-carol'), null as unknown as string)).toBe(false);
     });
   });
 });
