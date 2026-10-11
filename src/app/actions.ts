@@ -1,8 +1,13 @@
-'use server'
+'use server';
 
 import { supabaseAdmin } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import {
+  itemSchema,
+  updateNamespaceSchema,
+  getFirstZodErrorMessage,
+} from '@/lib/validation';
 
 // Tipagem base
 export type ActionResponse = {
@@ -10,6 +15,55 @@ export type ActionResponse = {
   message: string;
   data?: unknown;
 };
+
+type RequireStoreResult =
+  | { success: true; store: { id: string; slug: string } }
+  | { success: false; error: string };
+
+/**
+ * Valida a autenticação do lojista via cookie e recupera os dados do namespace.
+ * Função estritamente interna (não exportada) para não expor endpoint de Server Action.
+ */
+async function requireStore(slug: string): Promise<RequireStoreResult> {
+  if (!slug || typeof slug !== 'string') {
+    return { success: false, error: 'Loja não encontrada.' };
+  }
+
+  const cookieStore = await cookies();
+  const code = cookieStore.get(`auth_${slug}`)?.value;
+  if (!code) {
+    return { success: false, error: 'Não autorizado.' };
+  }
+
+  const { data: namespace, error: nsError } = await supabaseAdmin
+    .from('namespaces')
+    .select('id, slug')
+    .eq('slug', slug)
+    .single();
+
+  if (nsError || !namespace) {
+    return { success: false, error: 'Loja não encontrada.' };
+  }
+
+  const { data: validCode, error: codeError } = await supabaseAdmin
+    .from('namespace_codes')
+    .select('id')
+    .eq('namespace_id', namespace.id)
+    .eq('code', code)
+    .single();
+
+  if (codeError || !validCode) {
+    return { success: false, error: 'Não autorizado.' };
+  }
+
+  return {
+    success: true,
+    store: {
+      id: namespace.id,
+      slug: namespace.slug,
+    },
+  };
+}
 
 // Verifica se o código de 4 dígitos é válido para aquele namespace
 export async function authenticateNamespace(slug: string, code: string): Promise<ActionResponse> {
@@ -50,26 +104,8 @@ export async function authenticateNamespace(slug: string, code: string): Promise
 
 // Verifica se está autenticado
 export async function checkAuth(slug: string): Promise<boolean> {
-  const cookieStore = await cookies();
-  const code = cookieStore.get(`auth_${slug}`)?.value;
-  if (!code) return false;
-
-  const { data: namespace } = await supabaseAdmin
-    .from('namespaces')
-    .select('id')
-    .eq('slug', slug)
-    .single();
-
-  if (!namespace) return false;
-
-  const { data: validCode } = await supabaseAdmin
-    .from('namespace_codes')
-    .select('id')
-    .eq('namespace_id', namespace.id)
-    .eq('code', code)
-    .single();
-
-  return !!validCode;
+  const result = await requireStore(slug);
+  return result.success;
 }
 
 // Deslogar
@@ -81,30 +117,36 @@ export async function logoutNamespace(slug: string) {
 
 // Criar item
 export async function createItem(slug: string, formData: FormData): Promise<ActionResponse> {
-  const isAuth = await checkAuth(slug);
-  if (!isAuth) return { success: false, message: 'Não autorizado.' };
+  const authResult = await requireStore(slug);
+  if (!authResult.success) {
+    return { success: false, message: authResult.error };
+  }
+  const { store } = authResult;
 
-  const { data: namespace } = await supabaseAdmin
-    .from('namespaces')
-    .select('id')
-    .eq('slug', slug)
-    .single();
+  const rawTitle = formData.get('title');
+  const rawDescription = formData.get('description');
+  const rawPrice = formData.get('price');
+  const rawImageUrl = formData.get('image_url');
 
-  if (!namespace) return { success: false, message: 'Namespace inválido.' };
+  const parsed = itemSchema.safeParse({
+    title: typeof rawTitle === 'string' ? rawTitle : undefined,
+    description: typeof rawDescription === 'string' ? rawDescription : undefined,
+    price: rawPrice,
+    image_url: typeof rawImageUrl === 'string' ? rawImageUrl : undefined,
+  });
 
-  const title = formData.get('title') as string;
-  const description = formData.get('description') as string;
-  const price = parseFloat(formData.get('price') as string);
-  const image_url = formData.get('image_url') as string;
+  if (!parsed.success) {
+    return { success: false, message: getFirstZodErrorMessage(parsed.error) };
+  }
 
   const { error } = await supabaseAdmin
     .from('items')
     .insert({
-      namespace_id: namespace.id,
-      title,
-      description,
-      price,
-      image_url
+      namespace_id: store.id,
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      price: parsed.data.price,
+      image_url: parsed.data.image_url ?? null,
     });
 
   if (error) {
@@ -117,24 +159,43 @@ export async function createItem(slug: string, formData: FormData): Promise<Acti
 
 // Atualizar item
 export async function updateItem(slug: string, id: string, formData: FormData): Promise<ActionResponse> {
-  const isAuth = await checkAuth(slug);
-  if (!isAuth) return { success: false, message: 'Não autorizado.' };
+  const authResult = await requireStore(slug);
+  if (!authResult.success) {
+    return { success: false, message: authResult.error };
+  }
+  const { store } = authResult;
 
-  const title = formData.get('title') as string;
-  const description = formData.get('description') as string;
-  const price = parseFloat(formData.get('price') as string);
-  const image_url = formData.get('image_url') as string;
+  if (!id || typeof id !== 'string') {
+    return { success: false, message: 'ID do item inválido.' };
+  }
+
+  const rawTitle = formData.get('title');
+  const rawDescription = formData.get('description');
+  const rawPrice = formData.get('price');
+  const rawImageUrl = formData.get('image_url');
+
+  const parsed = itemSchema.safeParse({
+    title: typeof rawTitle === 'string' ? rawTitle : undefined,
+    description: typeof rawDescription === 'string' ? rawDescription : undefined,
+    price: rawPrice,
+    image_url: typeof rawImageUrl === 'string' ? rawImageUrl : undefined,
+  });
+
+  if (!parsed.success) {
+    return { success: false, message: getFirstZodErrorMessage(parsed.error) };
+  }
 
   const { error } = await supabaseAdmin
     .from('items')
     .update({
-      title,
-      description,
-      price,
-      image_url,
-      updated_at: new Date().toISOString()
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      price: parsed.data.price,
+      image_url: parsed.data.image_url ?? null,
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('namespace_id', store.id);
 
   if (error) {
     return { success: false, message: 'Erro ao atualizar item.' };
@@ -146,13 +207,21 @@ export async function updateItem(slug: string, id: string, formData: FormData): 
 
 // Excluir item
 export async function deleteItem(slug: string, id: string): Promise<ActionResponse> {
-  const isAuth = await checkAuth(slug);
-  if (!isAuth) return { success: false, message: 'Não autorizado.' };
+  const authResult = await requireStore(slug);
+  if (!authResult.success) {
+    return { success: false, message: authResult.error };
+  }
+  const { store } = authResult;
+
+  if (!id || typeof id !== 'string') {
+    return { success: false, message: 'ID do item inválido.' };
+  }
 
   const { error } = await supabaseAdmin
     .from('items')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('namespace_id', store.id);
 
   if (error) {
     return { success: false, message: 'Erro ao excluir item.' };
@@ -164,16 +233,24 @@ export async function deleteItem(slug: string, id: string): Promise<ActionRespon
 
 // Alternar status de "vendido"
 export async function toggleItemSold(slug: string, id: string, currentStatus: boolean): Promise<ActionResponse> {
-  const isAuth = await checkAuth(slug);
-  if (!isAuth) return { success: false, message: 'Não autorizado.' };
+  const authResult = await requireStore(slug);
+  if (!authResult.success) {
+    return { success: false, message: authResult.error };
+  }
+  const { store } = authResult;
+
+  if (!id || typeof id !== 'string') {
+    return { success: false, message: 'ID do item inválido.' };
+  }
 
   const { error } = await supabaseAdmin
     .from('items')
     .update({
       is_sold: !currentStatus,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('namespace_id', store.id);
 
   if (error) {
     return { success: false, message: 'Erro ao atualizar status.' };
@@ -185,19 +262,31 @@ export async function toggleItemSold(slug: string, id: string, currentStatus: bo
 
 // Atualizar informações da loja (namespace)
 export async function updateNamespace(slug: string, formData: FormData): Promise<ActionResponse> {
-  const isAuth = await checkAuth(slug);
-  if (!isAuth) return { success: false, message: 'Não autorizado.' };
+  const authResult = await requireStore(slug);
+  if (!authResult.success) {
+    return { success: false, message: authResult.error };
+  }
+  const { store } = authResult;
 
-  const name = formData.get('name') as string;
-  const subtitle = formData.get('subtitle') as string;
+  const rawName = formData.get('name');
+  const rawSubtitle = formData.get('subtitle');
+
+  const parsed = updateNamespaceSchema.safeParse({
+    name: typeof rawName === 'string' ? rawName : undefined,
+    subtitle: typeof rawSubtitle === 'string' ? rawSubtitle : undefined,
+  });
+
+  if (!parsed.success) {
+    return { success: false, message: getFirstZodErrorMessage(parsed.error) };
+  }
 
   const { error } = await supabaseAdmin
     .from('namespaces')
     .update({
-      name,
-      subtitle
+      name: parsed.data.name,
+      subtitle: parsed.data.subtitle ?? null,
     })
-    .eq('slug', slug);
+    .eq('id', store.id);
 
   if (error) {
     return { success: false, message: 'Erro ao atualizar a loja.' };
