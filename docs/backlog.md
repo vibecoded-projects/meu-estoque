@@ -200,7 +200,7 @@ flowchart LR
   - [ ] Testes de `sanitizeSlug` (acentos, espaços, reservados, tamanho).
   - [ ] build + lint + test passam.
 
-### T12 — Magic Link 🔄
+### T12 — Magic Link ✅
 - **Requisitos:** blueprint 3.1 · **Depende de:** T02 · **Decisão:** D2
 - **Arquivos:** `src/lib/session.ts`, `src/app/[slug]/entrar/route.ts` (novo)
 - **Escopo:** `createMagicToken(slug)`; Route Handler valida token (`purpose: 'magic'`, slug da URL igual ao do token), grava cookie de sessão e redireciona (303) para `/[slug]`. Token inválido redireciona para `/[slug]?erro=link-invalido` e a UI exibe aviso amigável.
