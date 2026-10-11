@@ -126,7 +126,7 @@ flowchart LR
   - [ ] `npm run test:e2e` passa localmente.
   - [ ] Nenhum teste escreve na loja `loja-carol`.
 
-### T05 — Decompor `ItemList.tsx` sem mudar comportamento 🔄
+### T05 — Decompor `ItemList.tsx` sem mudar comportamento ✅
 - **Depende de:** T01, T03, T04b (os E2E de caracterização protegem a refatoração)
 - **Arquivos:** `src/components/ItemList.tsx`, `src/components/store/*` (novos)
 - **Escopo:** extrair, sem alterar visual/comportamento: `StoreHeader`, `AuthModal`, `ItemFormModal`, `ProductModal`, `ItemCard`/`ItemRow`, e utilitários (`parseImages`, formatação de preço, download/share de imagem) para `src/lib/`.
