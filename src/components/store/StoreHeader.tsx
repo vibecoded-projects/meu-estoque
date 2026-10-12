@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Save, Phone, AlertCircle } from 'lucide-react';
+import { Pencil, Save, Phone, AlertCircle, Copy, Check, Link2 } from 'lucide-react';
 import { updateNamespace } from '@/app/actions';
 import { formatBrazilianPhone, normalizeBrazilianPhone } from '@/lib/phone';
+import { copyToClipboard, getStoreUrl } from '@/lib/share';
 import type { Namespace } from '@/lib/types';
 
 function InstagramIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
@@ -32,9 +33,16 @@ interface StoreHeaderProps {
   namespace: Namespace;
   isAuthenticated: boolean;
   onUpdateNamespace?: (updated: Namespace) => void;
+  onShared?: () => void;
 }
 
-export function StoreHeader({ slug, namespace, isAuthenticated, onUpdateNamespace }: StoreHeaderProps) {
+export function StoreHeader({
+  slug,
+  namespace,
+  isAuthenticated,
+  onUpdateNamespace,
+  onShared,
+}: StoreHeaderProps) {
   const [isEditingHeader, setIsEditingHeader] = useState(false);
   const [headerName, setHeaderName] = useState(namespace.name || slug);
   const [headerSubtitle, setHeaderSubtitle] = useState(namespace.subtitle || 'Catálogo de produtos');
@@ -42,6 +50,7 @@ export function StoreHeader({ slug, namespace, isAuthenticated, onUpdateNamespac
   const [headerInstagram, setHeaderInstagram] = useState(namespace.instagram_handle || '');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSavingHeader, setIsSavingHeader] = useState(false);
+  const [isBioCopied, setIsBioCopied] = useState(false);
 
   const startEditing = () => {
     setHeaderName(namespace.name || slug);
@@ -139,6 +148,16 @@ export function StoreHeader({ slug, namespace, isAuthenticated, onUpdateNamespac
       setValidationError('Erro ao atualizar a loja.');
     } finally {
       setIsSavingHeader(false);
+    }
+  };
+
+  const handleCopyBioLink = async () => {
+    const storeUrl = getStoreUrl(slug);
+    const ok = await copyToClipboard(storeUrl);
+    if (ok) {
+      setIsBioCopied(true);
+      onShared?.();
+      setTimeout(() => setIsBioCopied(false), 3000);
     }
   };
 
@@ -259,49 +278,96 @@ export function StoreHeader({ slug, namespace, isAuthenticated, onUpdateNamespac
             </div>
           </div>
         ) : (
-          <div className="flex justify-between items-start w-full">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{namespace.name || slug}</h1>
-              <p className="text-sm text-gray-500 mt-1">{namespace.subtitle || 'Catálogo de produtos'}</p>
+          <div className="flex flex-col w-full">
+            <div className="flex justify-between items-start w-full">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{namespace.name || slug}</h1>
+                <p className="text-sm text-gray-500 mt-1">{namespace.subtitle || 'Catálogo de produtos'}</p>
 
-              {(namespace.whatsapp || namespace.instagram_handle) && (
-                <div className="flex flex-wrap items-center gap-2.5 mt-3">
-                  {namespace.whatsapp && (
-                    <a
-                      href={`https://wa.me/${namespace.whatsapp}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-                      title="WhatsApp de atendimento"
-                    >
-                      <Phone size={13} className="text-emerald-600" />
-                      <span>{formatBrazilianPhone(namespace.whatsapp)}</span>
-                    </a>
-                  )}
-                  {namespace.instagram_handle && (
-                    <a
-                      href={`https://instagram.com/${namespace.instagram_handle}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-pink-50 text-pink-700 border border-pink-200 hover:bg-pink-100 transition-colors"
-                      title="Perfil no Instagram"
-                    >
-                      <InstagramIcon size={13} className="text-pink-600" />
-                      <span>@{namespace.instagram_handle}</span>
-                    </a>
-                  )}
-                </div>
+                {(namespace.whatsapp || namespace.instagram_handle) && (
+                  <div className="flex flex-wrap items-center gap-2.5 mt-3">
+                    {namespace.whatsapp && (
+                      <a
+                        href={`https://wa.me/${namespace.whatsapp}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                        title="WhatsApp de atendimento"
+                      >
+                        <Phone size={13} className="text-emerald-600" />
+                        <span>{formatBrazilianPhone(namespace.whatsapp)}</span>
+                      </a>
+                    )}
+                    {namespace.instagram_handle && (
+                      <a
+                        href={`https://instagram.com/${namespace.instagram_handle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-pink-50 text-pink-700 border border-pink-200 hover:bg-pink-100 transition-colors"
+                        title="Perfil no Instagram"
+                      >
+                        <InstagramIcon size={13} className="text-pink-600" />
+                        <span>@{namespace.instagram_handle}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={startEditing}
+                  className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shrink-0 ml-4"
+                  title="Editar dados da loja"
+                >
+                  <Pencil size={18} />
+                </button>
               )}
             </div>
+
             {isAuthenticated && (
-              <button
-                type="button"
-                onClick={startEditing}
-                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shrink-0 ml-4"
-                title="Editar dados da loja"
-              >
-                <Pencil size={18} />
-              </button>
+              <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-pink-50/40 -mx-6 -mb-6 p-4 rounded-b-lg border-t border-indigo-100">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="p-2 bg-indigo-600 text-white rounded-lg shrink-0 shadow-sm">
+                    <Link2 size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                      <span>Link da Vitrine para a Bio</span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+                        Instagram
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {isBioCopied
+                        ? 'Cole no Instagram: Perfil > Editar perfil > Links > Adicionar link externo.'
+                        : '1 toque para copiar e colar na bio do seu perfil do Instagram.'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCopyBioLink}
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm active:scale-95 shrink-0 ${
+                    isBioCopied
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                >
+                  {isBioCopied ? (
+                    <>
+                      <Check size={16} />
+                      <span>Link copiado para a Bio!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={16} />
+                      <span>Copiar link da Bio</span>
+                    </>
+                  )}
+                </button>
+              </div>
             )}
           </div>
         )}

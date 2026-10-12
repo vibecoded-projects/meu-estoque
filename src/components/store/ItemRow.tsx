@@ -1,11 +1,15 @@
 'use client';
 
-import { Image as ImageIcon, Copy, Check, Tag, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Image as ImageIcon, Copy, Check, Tag, Pencil, Trash2, Share2 } from 'lucide-react';
 import { parseImages, formatPrice } from '@/lib/format';
+import { buildCaption, copyToClipboard, getStoreUrl } from '@/lib/share';
 import type { Item } from '@/lib/types';
 
 interface ItemRowProps {
   item: Item;
+  slug?: string;
+  storeUrl?: string;
   isAuthenticated: boolean;
   onClick: () => void;
   onCopyTitle: (item: Item, e: React.MouseEvent) => void;
@@ -13,10 +17,13 @@ interface ItemRowProps {
   onToggleSold?: (id: string, currentStatus: boolean, e: React.MouseEvent) => void;
   onEdit?: (item: Item, e: React.MouseEvent) => void;
   onDelete?: (id: string, e: React.MouseEvent) => void;
+  onShared?: () => void;
 }
 
 export function ItemRow({
   item,
+  slug,
+  storeUrl,
   isAuthenticated,
   onClick,
   onCopyTitle,
@@ -24,8 +31,22 @@ export function ItemRow({
   onToggleSold,
   onEdit,
   onDelete,
+  onShared,
 }: ItemRowProps) {
+  const [isCaptionCopied, setIsCaptionCopied] = useState(false);
   const urls = parseImages(item.image_url);
+
+  const handleCopyCaption = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const targetUrl = storeUrl || (slug ? getStoreUrl(slug) : typeof window !== 'undefined' ? window.location.href : '');
+    const caption = buildCaption(item, targetUrl);
+    const ok = await copyToClipboard(caption);
+    if (ok) {
+      setIsCaptionCopied(true);
+      onShared?.();
+      setTimeout(() => setIsCaptionCopied(false), 2000);
+    }
+  };
 
   return (
     <div
@@ -82,9 +103,33 @@ export function ItemRow({
         </p>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mt-auto pt-3 sm:pt-4 border-t border-slate-100">
-          <span className={`font-bold text-base sm:text-xl ${item.is_sold ? 'text-slate-500' : 'text-emerald-600'}`}>
-            {formatPrice(item.price)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={`font-bold text-base sm:text-xl ${item.is_sold ? 'text-slate-500' : 'text-emerald-600'}`}>
+              {formatPrice(item.price)}
+            </span>
+            <button
+              type="button"
+              onClick={handleCopyCaption}
+              className={`py-1 px-2.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95 ${
+                isCaptionCopied
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                  : 'bg-slate-50 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200'
+              }`}
+              title="Copiar legenda com emojis e link para colar no Instagram"
+            >
+              {isCaptionCopied ? (
+                <>
+                  <Check size={13} className="text-emerald-600" />
+                  <span>Legenda copiada!</span>
+                </>
+              ) : (
+                <>
+                  <Share2 size={13} />
+                  <span>Copiar legenda</span>
+                </>
+              )}
+            </button>
+          </div>
 
           {isAuthenticated && (
             <div className="flex gap-1">

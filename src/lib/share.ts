@@ -1,0 +1,170 @@
+import { formatPrice } from './format';
+
+/**
+ * Monta legenda atrativa para feed/stories com emojis (✨ título, 💰 preço, 📦 descrição, 🔗 link da vitrine).
+ */
+export function buildCaption(
+  item: { title: string; price: number; description?: string | null },
+  storeUrl: string
+): string {
+  const parts: string[] = [
+    `✨ ${item.title.trim()}`,
+    `💰 ${formatPrice(item.price)}`,
+  ];
+
+  const cleanDesc = item.description?.trim();
+  if (cleanDesc) {
+    parts.push(`📦 ${cleanDesc}`);
+  }
+
+  const cleanUrl = storeUrl.trim();
+  if (cleanUrl) {
+    parts.push(`🔗 Link da vitrine: ${cleanUrl}`);
+  }
+
+  return parts.join('\n\n');
+}
+
+/**
+ * Retorna a URL canônica da vitrine a partir do slug.
+ */
+export function getStoreUrl(slug: string): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin.replace(/\/+$/, '');
+    return slug ? `${origin}/${slug}` : origin;
+  }
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || 'https://stokfacil.com').replace(/\/+$/, '');
+  return slug ? `${base}/${slug}` : base;
+}
+
+/**
+ * Utilitário com fallback robusto para cópia de texto:
+ * tenta `navigator.clipboard.writeText`, com fallback para `document.execCommand('copy')`.
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  // 1. Tenta API moderna assíncrona Clipboard
+  if (navigator?.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Falha (ex.: permissão negada ou WebView restritiva); prossegue para fallback
+    }
+  }
+
+  // 2. Fallback síncrono clássico com textarea temporário
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '-9999px';
+    textarea.style.opacity = '0';
+    textarea.setAttribute('readonly', '');
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, text.length);
+
+    const success = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return Boolean(success);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Encapsula a lógica de compartilhamento com a Web Share API (navigator.canShare({ files })),
+ * tratando AbortError (usuário cancelou) sem acionar fallback, e disparando download via
+ * blob: com feedback visual de conclusão caso o share não seja suportado ou falhe por NotAllowedError.
+ */
+export async function shareOrDownloadImage(
+  imageUrl: string,
+  filename: string
+): Promise<'shared' | 'downloaded' | 'cancelled'> {
+  if (typeof window === 'undefined') {
+    return 'cancelled';
+  }
+
+  // 1. Baixa o blob da imagem
+  let blob: Blob;
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Falha ao obter imagem (${response.status})`);
+    }
+    blob = await response.blob();
+  } catch (fetchError) {
+    console.error('Erro ao baixar blob da imagem:', fetchError);
+    // Como último recurso, tenta abrir em nova aba
+    try {
+      window.open(imageUrl, '_blank');
+      return 'downloaded';
+    } catch {
+      return 'cancelled';
+    }
+  }
+
+  const cleanName = filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const fileNameStr = cleanName.endsWith('.jpg') || cleanName.endsWith('.jpeg') || cleanName.endsWith('.png')
+    ? cleanName
+    : `${cleanName}.jpg`;
+
+  // 2. Tenta Web Share API se suportado para arquivos (mobile)
+  if (
+    typeof navigator !== 'undefined' &&
+    typeof navigator.canShare === 'function' &&
+    typeof navigator.share === 'function' &&
+    typeof File !== 'undefined'
+  ) {
+    try {
+      const file = new File([blob], fileNameStr, { type: blob.type || 'image/jpeg' });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: filename,
+          });
+          return 'shared';
+        } catch (shareError: unknown) {
+          const isAbort =
+            (shareError instanceof Error && shareError.name === 'AbortError') ||
+            (typeof shareError === 'object' &&
+              shareError !== null &&
+              (shareError as { name?: string }).name === 'AbortError');
+
+          if (isAbort) {
+            // Usuário cancelou intencionalmente a tela nativa; NÃO dispara fallback de download
+            return 'cancelled';
+          }
+          // NotAllowedError ou outro erro: continua para fallback via blob
+          console.warn('Web Share não permitido ou falhou, acionando fallback de download:', shareError);
+        }
+      }
+    } catch (canShareError) {
+      console.warn('Erro ao avaliar canShare, acionando fallback:', canShareError);
+    }
+  }
+
+  // 3. Fallback de download via blob: (Desktop ou WebViews sem suporte a files no share)
+  try {
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileNameStr;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+    return 'downloaded';
+  } catch (downloadError) {
+    console.error('Erro no fallback de download via blob:', downloadError);
+    window.open(imageUrl, '_blank');
+    return 'downloaded';
+  }
+}

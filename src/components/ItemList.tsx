@@ -16,11 +16,13 @@ export function ItemList({
   slug,
   isAuthenticated: initialAuth,
   namespace: initialNamespace,
+  onShared,
 }: {
   initialItems: Item[];
   slug: string;
   isAuthenticated: boolean;
   namespace: Namespace;
+  onShared?: () => void;
 }) {
   const [items, setItems] = useState<Item[]>(initialItems);
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuth);
@@ -104,6 +106,7 @@ export function ItemList({
         namespace={namespace}
         isAuthenticated={isAuthenticated}
         onUpdateNamespace={setNamespace}
+        onShared={onShared}
       />
 
       <div className="flex justify-between items-center mb-6">
@@ -171,6 +174,7 @@ export function ItemList({
               <ItemCard
                 key={item.id}
                 item={item}
+                slug={slug}
                 isAuthenticated={isAuthenticated}
                 onClick={() => setViewingItem(item)}
                 onCopyTitle={copyTitleOnly}
@@ -178,11 +182,13 @@ export function ItemList({
                 onToggleSold={handleToggleSold}
                 onEdit={openEditModal}
                 onDelete={handleDelete}
+                onShared={onShared}
               />
             ) : (
               <ItemRow
                 key={item.id}
                 item={item}
+                slug={slug}
                 isAuthenticated={isAuthenticated}
                 onClick={() => setViewingItem(item)}
                 onCopyTitle={copyTitleOnly}
@@ -190,6 +196,7 @@ export function ItemList({
                 onToggleSold={handleToggleSold}
                 onEdit={openEditModal}
                 onDelete={handleDelete}
+                onShared={onShared}
               />
             )
           )}
@@ -199,10 +206,15 @@ export function ItemList({
       {/* Modal de Detalhes do Produto */}
       <ProductModal
         item={viewingItem}
+        slug={slug}
         isAuthenticated={isAuthenticated}
+        whatsapp={namespace.whatsapp}
+        storeUrl={typeof window !== 'undefined' ? `${window.location.origin}/${slug}` : undefined}
+        namespace={namespace}
         onClose={() => setViewingItem(null)}
         onEdit={(item, e) => openEditModal(item, e)}
         onDelete={(id, e) => handleDelete(id, e)}
+        onShared={onShared}
       />
 
       {/* Modal de Autenticação */}
