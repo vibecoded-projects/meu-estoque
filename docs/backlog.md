@@ -188,7 +188,7 @@ flowchart LR
   - [ ] Contraste WCAG AA (texto ≥ `slate-600` sobre fundo claro).
   - [ ] build + lint passam; `/` responde 200.
 
-### T11 — Formulário de pedido de acesso (leads) ⬜
+### T11 — Formulário de pedido de acesso (leads) 🔄
 - **Requisitos:** RF03, RF04 · **Depende de:** T03 (aplicada), T07 (`phone.ts`), T10 · **Decisões:** D6, D8
 - **Arquivos:** `src/lib/slug.ts` (novo) + teste, `src/app/leads/actions.ts` (novo), `src/components/landing/LeadCaptureForm.tsx`
 - **Escopo:**
@@ -239,7 +239,7 @@ flowchart LR
   - [ ] Chamar duas vezes não estende duas vezes.
   - [ ] build + lint + test passam.
 
-### T16 — Banner de expiração e renovação via Pix ⬜
+### T16 — Banner de expiração e renovação via Pix 🔄
 - **Requisitos:** RF14 · **Depende de:** T14 · **Decisão:** D8
 - **Arquivos:** `src/components/store/TrialBanner.tsx` (novo), `src/app/[slug]/page.tsx`
 - **Escopo:** banner (só autenticado) com dias restantes e botão "Renovar no WhatsApp (via Pix)" para o admin com mensagem pré-formatada (loja, slug, plano). Em `grace`, banner vermelho informando que a edição está bloqueada.
@@ -257,7 +257,7 @@ flowchart LR
 - **Escopo:** textarea → pré-visualização editável (título/preço) → `createItemsBatch(slug, items[])` com Zod, limite de 100 itens por lote, inserção em um único `insert`.
 - **Critérios de aceite:** [ ] linhas com erro destacadas e bloqueiam envio até correção ou remoção; [ ] build + lint passam.
 
-### T19 — Botão Concierge ⬜
+### T19 — Botão Concierge 🔄
 - **Requisitos:** RF08 · **Depende de:** T05 · **Decisão:** D8
 - **Arquivos:** `src/components/store/ConciergeButton.tsx` (novo)
 - **Escopo:** visível no painel autenticado quando a loja tem < 5 itens (e discretamente depois), texto do RF08 mencionando **até 15 peças**, link `wa.me` para o admin.
