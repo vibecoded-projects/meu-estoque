@@ -158,7 +158,7 @@ flowchart LR
   - [ ] Número inválido exibe erro e não salva.
   - [ ] build + lint + `npm test` passam.
 
-### T08 — Botão "Pedir no WhatsApp" ⬜
+### T08 — Botão "Pedir no WhatsApp" 🔄
 - **Requisitos:** RF09 · **Depende de:** T07
 - **Arquivos:** `src/lib/whatsapp.ts` (novo) + teste, `src/components/store/ProductModal.tsx`
 - **Escopo:** `buildOrderLink({ phone, title, price, storeUrl })` gera `https://wa.me/<phone>?text=<encoded>` com a mensagem do blueprint (preço em `pt-BR`, ex.: `R$ 89,90`). Botão de destaque no modal (visitante), oculto se a loja não tiver WhatsApp ou se o item estiver vendido.
@@ -167,7 +167,7 @@ flowchart LR
   - [ ] Link usa `<a href target="_blank" rel="noopener">` (funciona em WebView).
   - [ ] build + lint + test passam.
 
-### T09 — Super-poder de compartilhamento ⬜
+### T09 — Super-poder de compartilhamento 🔄
 - **Requisitos:** RF11, blueprint 3.4 · **Depende de:** T05
 - **Arquivos:** `src/lib/share.ts` (novo) + teste, componentes de `store/`
 - **Escopo:**
@@ -179,7 +179,7 @@ flowchart LR
   - [ ] Teste de `buildCaption`.
   - [ ] build + lint + test passam.
 
-### T10 — Landing Page e seção de planos ⬜
+### T10 — Landing Page e seção de planos 🔄
 - **Requisitos:** RF05 · **Depende de:** T06
 - **Arquivos:** `src/app/page.tsx`, `src/components/landing/Hero.tsx`, `src/components/landing/PricingSection.tsx`, `src/lib/plans.ts`
 - **Escopo:** Hero mobile-first, link para a loja demo, grade de planos a partir de `plans.ts` (Mensal R$ 39, Trimestral R$ 99, Semestral R$ 169, **Anual R$ 299 ≈ R$ 24,90/mês** em destaque com Setup VIP 15 itens, White-label e PDF de balcão). CTA rola até `#pedir-acesso` (placeholder para T11).
