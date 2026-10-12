@@ -406,5 +406,27 @@ describe('createItemsBatch Server Action (T18 / RF06)', () => {
       expect(mockNamespaceState?.trial_extended).toBe(true);
       expect(mockNamespaceState?.activation_completed).toBe(true);
     });
+
+    it('rejeita importação em lote quando a loja está em carência (grace) ou pausada (T22 / RF15)', async () => {
+      // Simula loja com trial expirado há 2 dias (dentro do grace period de 7 dias)
+      if (mockNamespaceState) {
+        mockNamespaceState.trial_expires_at = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      }
+
+      const res = await createItemsBatch('loja-teste', [
+        { title: 'Item Lote 1', price: 10 },
+      ]);
+
+      expect(res.success).toBe(false);
+      expect(res.message).toBe(
+        'A edição está bloqueada porque o período da sua loja encerrou. Renove sua assinatura para continuar editando.'
+      );
+
+      // Nenhuma inserção deve ter sido realizada
+      const insertQueries = recordedQueries.filter(
+        (q) => q.table === 'items' && q.operation === 'insert'
+      );
+      expect(insertQueries).toHaveLength(0);
+    });
   });
 });

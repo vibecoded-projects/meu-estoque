@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { Pencil, Save, Phone, AlertCircle, Copy, Check, Link2, ListPlus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Pencil, Save, Phone, AlertCircle, Copy, Check, Link2, ListPlus, Camera } from 'lucide-react';
 import { updateNamespace, markShared } from '@/app/actions';
 import { formatBrazilianPhone, normalizeBrazilianPhone } from '@/lib/phone';
 import { copyToClipboard, getStoreUrl } from '@/lib/share';
-import type { Namespace } from '@/lib/types';
+import { parseImages } from '@/lib/format';
+import type { Namespace, Item } from '@/lib/types';
 import { BatchImportModal } from './BatchImportModal';
+import { PhotoConveyorModal } from './PhotoConveyorModal';
 
 function InstagramIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
   return (
@@ -33,18 +35,24 @@ interface StoreHeaderProps {
   slug: string;
   namespace: Namespace;
   isAuthenticated: boolean;
+  items?: Item[];
+  itemsWithoutPhotos?: Item[];
   onUpdateNamespace?: (updated: Namespace) => void;
   onShared?: () => void;
   onImportSuccess?: () => void;
+  onOpenPhotoConveyor?: () => void;
 }
 
 export function StoreHeader({
   slug,
   namespace,
   isAuthenticated,
+  items,
+  itemsWithoutPhotos: propItemsWithoutPhotos,
   onUpdateNamespace,
   onShared,
   onImportSuccess,
+  onOpenPhotoConveyor,
 }: StoreHeaderProps) {
   const [isEditingHeader, setIsEditingHeader] = useState(false);
   const [headerName, setHeaderName] = useState(namespace.name || slug);
@@ -55,6 +63,17 @@ export function StoreHeader({
   const [isSavingHeader, setIsSavingHeader] = useState(false);
   const [isBioCopied, setIsBioCopied] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isPhotoConveyorOpen, setIsPhotoConveyorOpen] = useState(false);
+
+  const itemsWithoutPhotos = useMemo(() => {
+    if (propItemsWithoutPhotos) return propItemsWithoutPhotos;
+    if (!items) return [];
+    return items.filter(
+      (item) => !item.image_url || parseImages(item.image_url).length === 0
+    );
+  }, [propItemsWithoutPhotos, items]);
+
+  const hasItemsWithoutPhotos = itemsWithoutPhotos.length > 0;
 
   const startEditing = () => {
     setHeaderName(namespace.name || slug);
@@ -344,6 +363,23 @@ export function StoreHeader({
               </div>
               {isAuthenticated && (
                 <div className="flex items-center gap-2 shrink-0 ml-4">
+                  {hasItemsWithoutPhotos && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenPhotoConveyor) {
+                          onOpenPhotoConveyor();
+                        } else {
+                          setIsPhotoConveyorOpen(true);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors shadow-sm"
+                      title="Subir fotos em lote na esteira"
+                    >
+                      <Camera size={16} />
+                      <span>Subir fotos em lote</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setIsBatchModalOpen(true)}
@@ -419,6 +455,31 @@ export function StoreHeader({
           onClose={() => setIsBatchModalOpen(false)}
           slug={slug}
           onSuccess={onImportSuccess}
+          onOpenPhotoConveyor={() => {
+            setIsBatchModalOpen(false);
+            if (onOpenPhotoConveyor) {
+              onOpenPhotoConveyor();
+            } else {
+              setIsPhotoConveyorOpen(true);
+            }
+          }}
+        />
+      )}
+
+      {isAuthenticated && (
+        <PhotoConveyorModal
+          isOpen={isPhotoConveyorOpen}
+          onClose={() => setIsPhotoConveyorOpen(false)}
+          slug={slug}
+          itemsWithoutPhotos={itemsWithoutPhotos}
+          onComplete={() => {
+            setIsPhotoConveyorOpen(false);
+            if (onImportSuccess) {
+              onImportSuccess();
+            } else {
+              window.location.reload();
+            }
+          }}
         />
       )}
     </header>

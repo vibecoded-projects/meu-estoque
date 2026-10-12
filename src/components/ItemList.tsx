@@ -116,6 +116,7 @@ export function ItemList({
         slug={slug}
         namespace={namespace}
         isAuthenticated={isAuthenticated}
+        items={items}
         onUpdateNamespace={setNamespace}
         onShared={onShared}
       />

@@ -5,6 +5,7 @@ import { checkAuth } from '@/app/actions';
 import { notFound } from 'next/navigation';
 import { ItemList } from '@/components/ItemList';
 import { StoreFooter } from '@/components/store/StoreFooter';
+import { PausedStore } from '@/components/store/PausedStore';
 import { getStoreLifecycle } from '@/lib/lifecycle';
 import type { Namespace } from '@/lib/types';
 
@@ -69,18 +70,38 @@ export default async function NamespacePage({ params }: PageProps) {
     notFound();
   }
 
-  // 2. Verificar se o usuário atual (cookie) está autenticado para edição
+  // 1. Verificar se o usuário atual (cookie) está autenticado para edição
   const isAuthenticated = await checkAuth(slug);
 
-  // 3. Buscar os itens do namespace
+  // 2. Calcular o ciclo de vida da loja para alertas e privacidade (T14 / T22 / RF15)
+  const lifecycle = getStoreLifecycle(namespace);
+
+  // 3. Se a vitrine não for pública (paused ou blocked), exibe PausedStore protegendo o catálogo
+  if (!lifecycle.isPublic) {
+    return (
+      <main className="min-h-screen bg-gray-50 p-4 md:p-8 flex flex-col justify-between">
+        <div className="max-w-4xl mx-auto space-y-6 w-full my-auto py-8">
+          <PausedStore
+            namespace={namespace}
+            lifecycle={lifecycle}
+            isAuthenticated={isAuthenticated}
+          />
+        </div>
+        <StoreFooter
+          plan={namespace.plan}
+          isWhiteLabel={namespace.is_whitelabel}
+          storeName={namespace.name}
+        />
+      </main>
+    );
+  }
+
+  // 4. Buscar os itens do namespace apenas se a vitrine for pública
   const { data: items } = await supabaseAdmin
     .from('items')
     .select('*')
     .eq('namespace_id', namespace.id)
     .order('created_at', { ascending: false });
-
-  // 4. Calcular o ciclo de vida da loja para alertas e renovação
-  const lifecycle = getStoreLifecycle(namespace);
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8 flex flex-col justify-between">

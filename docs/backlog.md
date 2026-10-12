@@ -280,9 +280,11 @@ flowchart LR
 
 ## Fase 3 — Escala e Monetização
 
-### T22 — Carência de 7 dias e vitrine pausada ⬜
+### T22 — Carência de 7 dias e vitrine pausada ✅
 - **Requisitos:** RF15 · **Depende de:** T14, T16
-- **Escopo:** actions de escrita retornam erro quando `!canEdit`; `/[slug]` em `paused`/`blocked` exibe página cortês com botão de WhatsApp da loja; `grace` mantém vitrine pública.
+- **Arquivos:** `src/lib/storeAuth.ts`, `src/app/actions.ts`, `src/app/actions/batch.ts`, `src/app/[slug]/page.tsx`, `src/components/store/PausedStore.tsx` (novo) + testes
+- **Escopo:** actions de escrita retornam erro quando `!canEdit` com mensagem explicativa de renovação; `/[slug]` em `paused`/`blocked` exibe página cortês com botão de WhatsApp da loja e painel autenticado com CTA Pix; `grace` mantém vitrine pública com bloqueio de escrita.
+- **Critérios de aceite:** [x] actions de escrita rejeitam sem permissão; [x] vitrine pausada não expõe produtos; [x] build + lint + test passam.
 
 ### T23 — Rodapé white-label (plano Anual) ✅
 - **Requisitos:** RF02 · **Depende de:** T06, T07
@@ -290,9 +292,11 @@ flowchart LR
 - **Escopo:** ocultação automática do branding StokFácil no rodapé quando `plan === 'annual'` ou `isWhiteLabel === true`, mantendo rodapé neutro da loja; nos demais planos exibe branding oficial com link para `/`.
 - **Critérios de aceite:** [x] branding ocultado no plano anual; [x] links externos seguros; [x] build + lint + test passam.
 
-### T24 — Upload de fotos em esteira ⬜
+### T24 — Upload de fotos em esteira ✅
 - **Requisitos:** RF07 · **Depende de:** T18, T21
-- **Escopo:** seleção múltipla → lista de cards com foto + título + preço → envio sequencial com progresso.
+- **Arquivos:** `src/components/store/PhotoConveyorModal.tsx` (novo) + testes, `src/components/store/BatchImportModal.tsx`, `src/components/store/StoreHeader.tsx`, `src/components/ItemList.tsx`
+- **Escopo:** seleção múltipla da câmera/galeria → esteira visual com auto-associação 1:1 sequencial aos itens sem foto → pipeline por foto com `compressImage` + `createUploadUrl` + `uploadToSignedUrl` + `updateItem` → envio sequencial com progresso (0 a 100%) e resiliência a falhas individuais.
+- **Critérios de aceite:** [x] seleção em lote e auto-associação; [x] progresso visual e tratamento de erro individual; [x] build + lint + test passam.
 
 ### T25 — Kit Balcão (PDF) ⛔
 - **Bloqueada:** o blueprint não especifica conteúdo/layout. Precisa de definição antes de entrar na fila.

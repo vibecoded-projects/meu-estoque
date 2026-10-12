@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   X,
   ListPlus,
@@ -10,6 +10,7 @@ import {
   Trash2,
   Loader2,
   Sparkles,
+  Camera,
 } from 'lucide-react';
 import { parseBatch, type ParsedBatchItem } from '@/lib/batchParser';
 import { formatPrice } from '@/lib/format';
@@ -21,6 +22,7 @@ export interface BatchImportModalProps {
   slug: string;
   onSuccess?: () => void;
   initialText?: string;
+  onOpenPhotoConveyor?: () => void;
 }
 
 const EXAMPLE_BATCH_TEXT = `Vestido floral midi 89,90
@@ -42,42 +44,62 @@ export function removeLineFromText(currentText: string, lineNumber: number): str
   return currentText;
 }
 
-export function BatchImportModal({
-  isOpen,
+function BatchImportModalContent({
   onClose,
   slug,
   onSuccess,
   initialText = '',
-}: BatchImportModalProps) {
+  onOpenPhotoConveyor,
+}: Omit<BatchImportModalProps, 'isOpen'>) {
   const [text, setText] = useState(initialText);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isBatchSuccess, setIsBatchSuccess] = useState(false);
+
+  const handleFinishWithoutPhotos = useCallback(() => {
+    onClose();
+    if (onSuccess) {
+      onSuccess();
+    } else {
+      window.location.reload();
+    }
+  }, [onClose, onSuccess]);
+
+  const handleGoToPhotoConveyor = () => {
+    onClose();
+    if (onSuccess) {
+      onSuccess();
+    }
+    if (onOpenPhotoConveyor) {
+      onOpenPhotoConveyor();
+    }
+  };
 
   // Fecha no Escape
   useEffect(() => {
-    if (!isOpen) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isSubmitting) {
-        onClose();
+        if (isBatchSuccess) {
+          handleFinishWithoutPhotos();
+        } else {
+          onClose();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSubmitting, onClose]);
+  }, [isSubmitting, isBatchSuccess, onClose, handleFinishWithoutPhotos]);
 
   // Previne rolagem do body quando modal está aberto
   useEffect(() => {
-    if (isOpen) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
-    }
-  }, [isOpen]);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
 
   // Atualização em tempo real conforme o usuário digita
   const parsedItems: ParsedBatchItem[] = useMemo(() => {
@@ -117,7 +139,11 @@ export function BatchImportModal({
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && !isSubmitting) {
-      onClose();
+      if (isBatchSuccess) {
+        handleFinishWithoutPhotos();
+      } else {
+        onClose();
+      }
     }
   };
 
@@ -139,14 +165,7 @@ export function BatchImportModal({
 
       if (res.success) {
         setSuccessMessage(res.message);
-        setTimeout(() => {
-          onClose();
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            window.location.reload();
-          }
-        }, 600);
+        setIsBatchSuccess(true);
       } else {
         setErrorMessage(res.message || 'Erro ao importar produtos.');
       }
@@ -157,8 +176,6 @@ export function BatchImportModal({
       setIsSubmitting(false);
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <div
@@ -186,7 +203,7 @@ export function BatchImportModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={isBatchSuccess ? handleFinishWithoutPhotos : onClose}
             disabled={isSubmitting}
             aria-label="Fechar modal"
             className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
@@ -195,10 +212,44 @@ export function BatchImportModal({
           </button>
         </div>
 
-        {/* Conteúdo scrollável */}
-        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
-          {/* Caixa de Texto e Ações Rápidas */}
-          <div>
+        {/* Conteúdo scrollável ou Convite de Sucesso */}
+        {isBatchSuccess ? (
+          <div className="p-6 sm:p-10 flex flex-col items-center text-center space-y-5 my-auto">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shadow-inner">
+              <CheckCircle2 size={36} />
+            </div>
+            <div className="space-y-1.5 max-w-md">
+              <h3 className="text-xl font-bold text-slate-900">
+                Produtos importados com sucesso!
+              </h3>
+              <p className="text-sm text-slate-600">
+                Deseja subir as fotos agora na esteira?
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2 w-full max-w-sm justify-center">
+              <button
+                type="button"
+                onClick={handleGoToPhotoConveyor}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-sm active:scale-95"
+              >
+                <Camera size={18} />
+                <span>Subir fotos na esteira</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleFinishWithoutPhotos}
+                className="w-full sm:w-auto px-5 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                Agora não
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Caixa de Texto e Ações Rápidas */}
+              <div>
             <div className="flex items-center justify-between mb-1.5">
               <label
                 htmlFor="batch-textarea"
@@ -441,7 +492,14 @@ Blusa canelada branca - R$ 45,00`}
             </button>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
+}
+
+export function BatchImportModal({ isOpen, ...props }: BatchImportModalProps) {
+  if (!isOpen) return null;
+  return <BatchImportModalContent {...props} />;
 }

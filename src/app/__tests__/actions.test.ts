@@ -1018,4 +1018,116 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
       });
     });
   });
+
+  describe('T22 — Bloqueio de Edição em Carência (grace), Vitrine Pausada e Bloqueada (RF15 / D4)', () => {
+    beforeEach(() => {
+      setAuthenticatedSessionCookie('loja-carol');
+      recordedQueries = [];
+    });
+
+    const expectedBlockedMessage =
+      'A edição está bloqueada porque o período da sua loja encerrou. Renove sua assinatura para continuar editando.';
+
+    describe('Período de Tolerância / Carência de 7 dias (state = grace)', () => {
+      beforeEach(() => {
+        // Expirou há 2 dias -> dentro da janela de 7 dias de tolerância (grace)
+        mockNamespaceState.trial_expires_at = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+        mockNamespaceState.status = 'active';
+      });
+
+      it('rejeita createItem com mensagem explicativa e não insere item', async () => {
+        const formData = createItemFormData({ title: 'Vestido Grace', price: '99.00' });
+        const res = await createItem('loja-carol', formData);
+
+        expect(res.success).toBe(false);
+        expect(res.message).toBe(expectedBlockedMessage);
+
+        const itemInserts = recordedQueries.filter(
+          (q) => q.table === 'items' && q.operation === 'insert'
+        );
+        expect(itemInserts).toHaveLength(0);
+      });
+
+      it('rejeita updateItem com mensagem explicativa e não atualiza item', async () => {
+        const formData = createItemFormData({ title: 'Vestido Atualizado', price: '120.00' });
+        const res = await updateItem('loja-carol', 'item-abc', formData);
+
+        expect(res.success).toBe(false);
+        expect(res.message).toBe(expectedBlockedMessage);
+
+        const itemUpdates = recordedQueries.filter(
+          (q) => q.table === 'items' && q.operation === 'update'
+        );
+        expect(itemUpdates).toHaveLength(0);
+      });
+
+      it('rejeita deleteItem com mensagem explicativa e não exclui item', async () => {
+        const res = await deleteItem('loja-carol', 'item-abc');
+
+        expect(res.success).toBe(false);
+        expect(res.message).toBe(expectedBlockedMessage);
+
+        const itemDeletes = recordedQueries.filter(
+          (q) => q.table === 'items' && q.operation === 'delete'
+        );
+        expect(itemDeletes).toHaveLength(0);
+      });
+
+      it('rejeita toggleItemSold com mensagem explicativa e não altera status', async () => {
+        const res = await toggleItemSold('loja-carol', 'item-abc', false);
+
+        expect(res.success).toBe(false);
+        expect(res.message).toBe(expectedBlockedMessage);
+
+        const itemUpdates = recordedQueries.filter(
+          (q) => q.table === 'items' && q.operation === 'update'
+        );
+        expect(itemUpdates).toHaveLength(0);
+      });
+
+      it('rejeita updateNamespace com mensagem explicativa e não atualiza a loja', async () => {
+        const fd = new FormData();
+        fd.append('name', 'Carol Modas Grace');
+        const res = await updateNamespace('loja-carol', fd);
+
+        expect(res.success).toBe(false);
+        expect(res.message).toBe(expectedBlockedMessage);
+
+        const nsUpdates = recordedQueries.filter(
+          (q) => q.table === 'namespaces' && q.operation === 'update'
+        );
+        expect(nsUpdates).toHaveLength(0);
+      });
+    });
+
+    describe('Vitrine Pausada pós-carência (state = paused)', () => {
+      beforeEach(() => {
+        // Expirou há 15 dias -> além da carência de 7 dias
+        mockNamespaceState.trial_expires_at = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+        mockNamespaceState.status = 'active';
+      });
+
+      it('rejeita criação e modificações de itens quando a loja está pausada', async () => {
+        const formData = createItemFormData({ title: 'Item Pausado', price: '50.00' });
+        const res = await createItem('loja-carol', formData);
+
+        expect(res.success).toBe(false);
+        expect(res.message).toBe(expectedBlockedMessage);
+      });
+    });
+
+    describe('Loja Bloqueada pelo Operador (state = blocked)', () => {
+      beforeEach(() => {
+        mockNamespaceState.status = 'blocked';
+      });
+
+      it('rejeita criação e modificações de itens quando a loja está bloqueada', async () => {
+        const formData = createItemFormData({ title: 'Item Bloqueado', price: '50.00' });
+        const res = await createItem('loja-carol', formData);
+
+        expect(res.success).toBe(false);
+        expect(res.message).toBe(expectedBlockedMessage);
+      });
+    });
+  });
 });

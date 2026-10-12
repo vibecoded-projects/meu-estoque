@@ -84,7 +84,7 @@ export async function logoutNamespace(slug: string) {
 
 // Criar item
 export async function createItem(slug: string, formData: FormData): Promise<ActionResponse> {
-  const authResult = await requireStore(slug);
+  const authResult = await requireStore(slug, { requireEditPermission: true });
   if (!authResult.success) {
     return { success: false, message: authResult.error };
   }
@@ -164,7 +164,7 @@ export async function createItem(slug: string, formData: FormData): Promise<Acti
 
 // Atualizar item
 export async function updateItem(slug: string, id: string, formData: FormData): Promise<ActionResponse> {
-  const authResult = await requireStore(slug);
+  const authResult = await requireStore(slug, { requireEditPermission: true });
   if (!authResult.success) {
     return { success: false, message: authResult.error };
   }
@@ -212,7 +212,7 @@ export async function updateItem(slug: string, id: string, formData: FormData): 
 
 // Excluir item
 export async function deleteItem(slug: string, id: string): Promise<ActionResponse> {
-  const authResult = await requireStore(slug);
+  const authResult = await requireStore(slug, { requireEditPermission: true });
   if (!authResult.success) {
     return { success: false, message: authResult.error };
   }
@@ -238,7 +238,7 @@ export async function deleteItem(slug: string, id: string): Promise<ActionRespon
 
 // Alternar status de "vendido"
 export async function toggleItemSold(slug: string, id: string, currentStatus: boolean): Promise<ActionResponse> {
-  const authResult = await requireStore(slug);
+  const authResult = await requireStore(slug, { requireEditPermission: true });
   if (!authResult.success) {
     return { success: false, message: authResult.error };
   }
@@ -267,7 +267,7 @@ export async function toggleItemSold(slug: string, id: string, currentStatus: bo
 
 // Atualizar informações da loja (namespace)
 export async function updateNamespace(slug: string, formData: FormData): Promise<ActionResponse> {
-  const authResult = await requireStore(slug);
+  const authResult = await requireStore(slug, { requireEditPermission: true });
   if (!authResult.success) {
     return { success: false, message: authResult.error };
   }

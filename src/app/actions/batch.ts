@@ -43,8 +43,8 @@ export async function createItemsBatch(
   slug: string,
   rawItems: Array<{ title: string; price: number; description?: string | null }>
 ): Promise<ActionResponse<{ count: number }>> {
-  // 1. Validação de autenticação
-  const authResult = await requireStore(slug);
+  // 1. Validação de autenticação e permissão de escrita (T22 / RF15)
+  const authResult = await requireStore(slug, { requireEditPermission: true });
   if (!authResult.success) {
     return { success: false, message: authResult.error };
   }
