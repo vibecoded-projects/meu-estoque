@@ -245,6 +245,54 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
       const idFilter = updateQuery.eqCalls.find((c) => c.column === 'id');
       expect(idFilter).toEqual({ column: 'id', value: 'ns-carol-123' });
     });
+
+    it('atualiza whatsapp normalizado e instagram_handle no updateNamespace', async () => {
+      const fd = new FormData();
+      fd.append('name', 'Carol Boutique');
+      fd.append('subtitle', 'Moda feminina sustentável');
+      fd.append('whatsapp', '(11) 99999-9999');
+      fd.append('instagram_handle', 'carol_boutique');
+
+      const res = await updateNamespace('loja-carol', fd);
+      expect(res.success).toBe(true);
+      expect(res.message).toBe('Loja atualizada com sucesso!');
+
+      const nsUpdates = recordedQueries.filter(
+        (q) => q.table === 'namespaces' && q.operation === 'update'
+      );
+      expect(nsUpdates).toHaveLength(1);
+
+      const updateQuery = nsUpdates[0];
+      expect(updateQuery.payload).toEqual({
+        name: 'Carol Boutique',
+        subtitle: 'Moda feminina sustentável',
+        whatsapp: '5511999999999',
+        instagram_handle: 'carol_boutique',
+      });
+    });
+
+    it('permite limpar whatsapp e instagram_handle passando strings vazias', async () => {
+      const fd = new FormData();
+      fd.append('name', 'Carol Boutique');
+      fd.append('whatsapp', '');
+      fd.append('instagram_handle', '');
+
+      const res = await updateNamespace('loja-carol', fd);
+      expect(res.success).toBe(true);
+
+      const nsUpdates = recordedQueries.filter(
+        (q) => q.table === 'namespaces' && q.operation === 'update'
+      );
+      expect(nsUpdates).toHaveLength(1);
+
+      const updateQuery = nsUpdates[0];
+      expect(updateQuery.payload).toEqual({
+        name: 'Carol Boutique',
+        subtitle: null,
+        whatsapp: null,
+        instagram_handle: null,
+      });
+    });
   });
 
   describe('(2) Não autenticado: bloqueio e sem tocar em items', () => {
@@ -413,6 +461,36 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
 
       expect(res.success).toBe(false);
       expect(res.message).toBe('Nome da loja é obrigatório.');
+    });
+
+    it('rejeita whatsapp inválido em updateNamespace com mensagem PT-BR', async () => {
+      const fd = new FormData();
+      fd.append('name', 'Carol Boutique');
+      fd.append('whatsapp', '12345');
+      const res = await updateNamespace('loja-carol', fd);
+
+      expect(res.success).toBe(false);
+      expect(res.message).toBe('Número de WhatsApp inválido.');
+    });
+
+    it('rejeita instagram contendo "@" em updateNamespace com mensagem PT-BR', async () => {
+      const fd = new FormData();
+      fd.append('name', 'Carol Boutique');
+      fd.append('instagram_handle', '@carol_boutique');
+      const res = await updateNamespace('loja-carol', fd);
+
+      expect(res.success).toBe(false);
+      expect(res.message).toBe('Nome de usuário do Instagram não deve conter "@".');
+    });
+
+    it('rejeita instagram com mais de 30 caracteres em updateNamespace com mensagem PT-BR', async () => {
+      const fd = new FormData();
+      fd.append('name', 'Carol Boutique');
+      fd.append('instagram_handle', 'a'.repeat(31));
+      const res = await updateNamespace('loja-carol', fd);
+
+      expect(res.success).toBe(false);
+      expect(res.message).toBe('Instagram deve ter no máximo 30 caracteres.');
     });
   });
 
@@ -595,6 +673,141 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
         if (!err.success) {
           expect(getFirstZodErrorMessage(err.error)).toBe(
             'Subtítulo deve ter no máximo 255 caracteres.'
+          );
+        }
+      });
+
+      it('aceita e normaliza whatsapp válido no formato nacional e internacional', () => {
+        const res1 = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          whatsapp: '(11) 99999-9999',
+        });
+        expect(res1.success).toBe(true);
+        if (res1.success) {
+          expect(res1.data.whatsapp).toBe('5511999999999');
+        }
+
+        const res2 = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          whatsapp: '+55 11 99999-9999',
+        });
+        expect(res2.success).toBe(true);
+        if (res2.success) {
+          expect(res2.data.whatsapp).toBe('5511999999999');
+        }
+
+        const res3 = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          whatsapp: '(11) 3333-4444', // fixo
+        });
+        expect(res3.success).toBe(true);
+        if (res3.success) {
+          expect(res3.data.whatsapp).toBe('551133334444');
+        }
+      });
+
+      it('aceita whatsapp nulo, indefinido ou vazio e converte para nulo/indefinido', () => {
+        const res1 = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          whatsapp: null,
+        });
+        expect(res1.success).toBe(true);
+        if (res1.success) {
+          expect(res1.data.whatsapp).toBeNull();
+        }
+
+        const res2 = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          whatsapp: '',
+        });
+        expect(res2.success).toBe(true);
+        if (res2.success) {
+          expect(res2.data.whatsapp).toBeNull();
+        }
+
+        const res3 = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+        });
+        expect(res3.success).toBe(true);
+        if (res3.success) {
+          expect(res3.data.whatsapp).toBeUndefined();
+        }
+      });
+
+      it('rejeita whatsapp com formato inválido', () => {
+        const err = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          whatsapp: '12345',
+        });
+        expect(err.success).toBe(false);
+        if (!err.success) {
+          expect(getFirstZodErrorMessage(err.error)).toBe(
+            'Número de WhatsApp inválido.'
+          );
+        }
+      });
+
+      it('aceita instagram_handle válido sem "@"', () => {
+        const res = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          instagram_handle: 'minha_loja.oficial',
+        });
+        expect(res.success).toBe(true);
+        if (res.success) {
+          expect(res.data.instagram_handle).toBe('minha_loja.oficial');
+        }
+      });
+
+      it('aceita instagram_handle nulo, indefinido ou vazio', () => {
+        const res1 = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          instagram_handle: null,
+        });
+        expect(res1.success).toBe(true);
+        if (res1.success) {
+          expect(res1.data.instagram_handle).toBeNull();
+        }
+
+        const res2 = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          instagram_handle: '   ',
+        });
+        expect(res2.success).toBe(true);
+        if (res2.success) {
+          expect(res2.data.instagram_handle).toBeNull();
+        }
+
+        const res3 = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+        });
+        expect(res3.success).toBe(true);
+        if (res3.success) {
+          expect(res3.data.instagram_handle).toBeUndefined();
+        }
+      });
+
+      it('rejeita instagram_handle contendo "@"', () => {
+        const err = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          instagram_handle: '@minhaloja',
+        });
+        expect(err.success).toBe(false);
+        if (!err.success) {
+          expect(getFirstZodErrorMessage(err.error)).toBe(
+            'Nome de usuário do Instagram não deve conter "@".'
+          );
+        }
+      });
+
+      it('rejeita instagram_handle com mais de 30 caracteres', () => {
+        const err = updateNamespaceSchema.safeParse({
+          name: 'Loja',
+          instagram_handle: 'a'.repeat(31),
+        });
+        expect(err.success).toBe(false);
+        if (!err.success) {
+          expect(getFirstZodErrorMessage(err.error)).toBe(
+            'Instagram deve ter no máximo 30 caracteres.'
           );
         }
       });

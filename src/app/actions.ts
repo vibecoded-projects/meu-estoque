@@ -284,22 +284,44 @@ export async function updateNamespace(slug: string, formData: FormData): Promise
 
   const rawName = formData.get('name');
   const rawSubtitle = formData.get('subtitle');
+  const rawWhatsapp = formData.get('whatsapp');
+  const rawInstagramHandle = formData.get('instagram_handle');
 
   const parsed = updateNamespaceSchema.safeParse({
     name: typeof rawName === 'string' ? rawName : undefined,
     subtitle: typeof rawSubtitle === 'string' ? rawSubtitle : undefined,
+    whatsapp: formData.has('whatsapp')
+      ? (typeof rawWhatsapp === 'string' ? rawWhatsapp : '')
+      : undefined,
+    instagram_handle: formData.has('instagram_handle')
+      ? (typeof rawInstagramHandle === 'string' ? rawInstagramHandle : '')
+      : undefined,
   });
 
   if (!parsed.success) {
     return { success: false, message: getFirstZodErrorMessage(parsed.error) };
   }
 
+  const updatePayload: {
+    name: string;
+    subtitle: string | null;
+    whatsapp?: string | null;
+    instagram_handle?: string | null;
+  } = {
+    name: parsed.data.name,
+    subtitle: parsed.data.subtitle ?? null,
+  };
+
+  if (parsed.data.whatsapp !== undefined) {
+    updatePayload.whatsapp = parsed.data.whatsapp;
+  }
+  if (parsed.data.instagram_handle !== undefined) {
+    updatePayload.instagram_handle = parsed.data.instagram_handle;
+  }
+
   const { error } = await supabaseAdmin
     .from('namespaces')
-    .update({
-      name: parsed.data.name,
-      subtitle: parsed.data.subtitle ?? null,
-    })
+    .update(updatePayload)
     .eq('id', store.id);
 
   if (error) {
