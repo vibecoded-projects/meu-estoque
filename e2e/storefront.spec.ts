@@ -67,6 +67,46 @@ test.describe('Vitrine (Storefront)', () => {
     await expect(copyInfosBtn).not.toBeVisible();
   });
 
+  test('deve validar botão "Pedir no WhatsApp" no modal de produto', async ({ page }) => {
+    await page.goto('/loja-carol');
+
+    const emptyState = page.getByText('Nenhum item cadastrado.');
+    const isEmpty = await emptyState.isVisible().catch(() => false);
+
+    test.skip(isEmpty, 'Nenhum produto cadastrado na vitrine para abrir o modal.');
+
+    const firstProduct = page.locator('h3').first();
+    const isProductPresent = await firstProduct.isVisible().catch(() => false);
+    test.skip(!isProductPresent, 'Nenhum produto encontrado para teste de modal.');
+
+    // Verifica se a loja possui WhatsApp configurado no cabeçalho
+    const headerWhatsapp = page.locator('header a[href^="https://wa.me/"]').first();
+    const hasWhatsapp = await headerWhatsapp.isVisible().catch(() => false);
+
+    // Clica no card do primeiro produto para abrir o modal
+    await firstProduct.click();
+
+    const orderButton = page.getByRole('link', { name: /pedir no whatsapp/i });
+
+    if (hasWhatsapp) {
+      // Se a loja tiver WhatsApp configurado, o botão deve estar visível e direcionar para wa.me com mensagem
+      await expect(orderButton).toBeVisible();
+      const href = await orderButton.getAttribute('href');
+      expect(href).toMatch(/^https:\/\/wa\.me\/55\d+\?text=/);
+      expect(href).toContain(encodeURIComponent('Olá! Vi o produto'));
+      expect(href).toContain(encodeURIComponent('Ainda está disponível?'));
+      await expect(orderButton).toHaveAttribute('target', '_blank');
+      await expect(orderButton).toHaveAttribute('rel', /noopener/);
+    } else {
+      // Se a loja não tiver WhatsApp configurado, o visitante não deve ver o botão de pedido
+      await expect(orderButton).not.toBeVisible();
+    }
+
+    // Fecha o modal com Escape
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: /copiar infos/i })).not.toBeVisible();
+  });
+
   test('deve retornar status 404 para slug inexistente', async ({ page }) => {
     const res = await page.goto('/loja-que-nao-existe-404-teste');
     expect(res?.status()).toBe(404);
