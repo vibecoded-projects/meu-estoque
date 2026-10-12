@@ -1,18 +1,19 @@
+import type { Metadata } from 'next';
+import { cache } from 'react';
 import { supabaseAdmin } from '@/lib/supabase';
 import { checkAuth } from '@/app/actions';
 import { notFound } from 'next/navigation';
 import { ItemList } from '@/components/ItemList';
+import { StoreFooter } from '@/components/store/StoreFooter';
+import type { Namespace } from '@/lib/types';
 
 export const revalidate = 0; // Para garantir que os dados estejam sempre atualizados no SSR inicial se precisarmos
 
-export default async function NamespacePage({
-  params,
-}: {
+interface PageProps {
   params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
+}
 
-  // 1. Buscar o namespace
+const getNamespace = cache(async (slug: string): Promise<Namespace | null> => {
   const { data: namespace, error } = await supabaseAdmin
     .from('namespaces')
     .select('*')
@@ -20,6 +21,50 @@ export default async function NamespacePage({
     .single();
 
   if (error || !namespace) {
+    return null;
+  }
+  return namespace as Namespace;
+});
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const namespace = await getNamespace(slug);
+
+  if (!namespace) {
+    return {
+      title: 'Loja não encontrada | StokFácil',
+      description: 'A vitrine solicitada não foi encontrada no StokFácil.',
+    };
+  }
+
+  const storeName = namespace.name?.trim() || slug;
+  const description =
+    namespace.subtitle?.trim() ||
+    `Confira o catálogo de produtos de ${storeName} no StokFácil e faça seu pedido direto no WhatsApp.`;
+
+  return {
+    title: `${storeName} | StokFácil`,
+    description,
+    openGraph: {
+      title: `${storeName} | StokFácil`,
+      description,
+      type: 'website',
+      images: namespace.logo_url ? [{ url: namespace.logo_url }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${storeName} | StokFácil`,
+      description,
+      images: namespace.logo_url ? [namespace.logo_url] : undefined,
+    },
+  };
+}
+
+export default async function NamespacePage({ params }: PageProps) {
+  const { slug } = await params;
+  const namespace = await getNamespace(slug);
+
+  if (!namespace) {
     notFound();
   }
 
@@ -34,8 +79,8 @@ export default async function NamespacePage({
     .order('created_at', { ascending: false });
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <main className="min-h-screen bg-gray-50 p-4 md:p-8 flex flex-col justify-between">
+      <div className="max-w-4xl mx-auto space-y-6 w-full">
         <ItemList 
           initialItems={items || []} 
           slug={slug} 
@@ -43,6 +88,7 @@ export default async function NamespacePage({
           namespace={namespace}
         />
       </div>
+      <StoreFooter isWhiteLabel={namespace.is_whitelabel} />
     </main>
   );
 }

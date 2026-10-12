@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Package, ArrowRight } from "lucide-react";
+import { Store, ArrowRight } from "lucide-react";
 
 export default function Home() {
   return (
@@ -8,27 +8,27 @@ export default function Home() {
         
         {/* Header/Logo */}
         <div className="flex items-center gap-3 mb-16">
-          <div className="bg-slate-800 p-2.5 rounded-xl shadow-sm">
-            <Package className="text-white" size={24} />
+          <div className="bg-indigo-600 p-2.5 rounded-xl shadow-sm">
+            <Store className="text-white" size={24} />
           </div>
-          <span className="text-xl font-bold tracking-tight text-slate-900">Meu Estoque</span>
+          <span className="text-xl font-bold tracking-tight text-slate-900">StokFácil</span>
         </div>
 
         {/* Hero */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-5">
-            O catálogo da sua loja.
+            Seu estoque no bolso, suas vendas no WhatsApp
           </h1>
           <p className="text-lg text-slate-600 leading-relaxed max-w-lg mx-auto">
-            Uma forma simples e direta de cadastrar, gerenciar fotos e compartilhar seus produtos com os clientes.
+            O catálogo digital simples e direto para cadastrar produtos, compartilhar fotos e receber pedidos dos clientes.
           </p>
         </div>
 
         {/* Demo Card */}
         <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm w-full max-w-md">
-          <h2 className="text-lg font-bold text-slate-800 mb-2">Ambiente de Teste</h2>
-          <p className="text-slate-500 mb-8 text-sm leading-relaxed">
-            Acesse nossa loja de demonstração para entender como o sistema funciona na prática.
+          <h2 className="text-lg font-bold text-slate-800 mb-2">Ambiente de Demonstração</h2>
+          <p className="text-slate-600 mb-8 text-sm leading-relaxed">
+            Acesse nossa loja de demonstração para entender como o catálogo funciona na prática.
           </p>
           <Link 
             href="/loja-carol" 
@@ -42,8 +42,8 @@ export default function Home() {
       </div>
       
       {/* Footer */}
-      <footer className="mt-auto py-8 text-center text-slate-400 text-sm">
-        &copy; {new Date().getFullYear()} Meu Estoque
+      <footer className="mt-auto py-8 text-center text-slate-600 text-sm">
+        &copy; {new Date().getFullYear()} StokFácil — Seu estoque no bolso, suas vendas no WhatsApp
       </footer>
     </main>
   );

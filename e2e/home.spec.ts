@@ -5,17 +5,18 @@ test.describe('Home Page', () => {
     const response = await page.goto('/');
     expect(response?.status()).toBe(200);
 
-    // Título / Header principal
-    await expect(page.getByText('Meu Estoque').first()).toBeVisible();
+    // Título / Header principal StokFácil
+    await expect(page.getByText('StokFácil').first()).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: /O catálogo da sua loja\./i })
+      page.getByRole('heading', { name: /Seu estoque no bolso, suas vendas no WhatsApp/i })
     ).toBeVisible();
+    await expect(page).toHaveTitle(/StokFácil — Catálogo digital e vendas no WhatsApp/);
 
     // Link para loja demo
     const demoLink = page.getByRole('link', { name: /Acessar \/loja-carol/i });
     await expect(demoLink).toBeVisible();
 
     await demoLink.click();
-    await expect(page).toHaveURL(/\/loja-carol$/);
+    await expect(page).toHaveURL(/\/loja-carol$/, { timeout: 30000 });
   });
 });

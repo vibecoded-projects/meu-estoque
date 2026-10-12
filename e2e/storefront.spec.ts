@@ -71,4 +71,19 @@ test.describe('Vitrine (Storefront)', () => {
     const res = await page.goto('/loja-que-nao-existe-404-teste');
     expect(res?.status()).toBe(404);
   });
+
+  test('deve exibir rodapé "Criado com StokFácil" e metatags OpenGraph com nome da loja', async ({ page }) => {
+    await page.goto('/loja-carol');
+
+    // Valida rodapé com link para a home
+    const footerLink = page.getByRole('link', { name: /Criado com StokFácil — Crie sua vitrine grátis/i });
+    await expect(footerLink).toBeVisible();
+    await expect(footerLink).toHaveAttribute('href', '/');
+
+    // Valida og:title contendo o nome da loja ou StokFácil
+    const ogTitle = page.locator('meta[property="og:title"]');
+    await expect(ogTitle).toHaveCount(1);
+    const content = await ogTitle.getAttribute('content');
+    expect(content).toMatch(/StokFácil/);
+  });
 });
