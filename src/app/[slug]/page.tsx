@@ -93,7 +93,11 @@ export default async function NamespacePage({ params }: PageProps) {
           lifecycle={lifecycle}
         />
       </div>
-      <StoreFooter isWhiteLabel={namespace.is_whitelabel} />
+      <StoreFooter
+        plan={namespace.plan}
+        isWhiteLabel={namespace.is_whitelabel}
+        storeName={namespace.name}
+      />
     </main>
   );
 }

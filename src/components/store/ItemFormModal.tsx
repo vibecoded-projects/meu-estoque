@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { createItem, updateItem } from '@/app/actions';
+import { createUploadUrl } from '@/app/actions/upload';
 import { supabase } from '@/lib/supabase';
 import { parseImages } from '@/lib/format';
 import { compressImage } from '@/lib/imageCompression';
@@ -68,23 +69,27 @@ function ItemFormModalContent({
 
   const handleImageUpload = async (file: File) => {
     const readyFile = await compressImage(file);
-    const fileExt = readyFile.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-    const filePath = `${slug}/${fileName}`;
+    const rawExt = readyFile.name.split('.').pop() || 'webp';
+    const ext = rawExt.toLowerCase().replace(/^\./, '').trim();
 
+    // 1. Solicitar URL de upload assinada pelo servidor (RNF06 / D7)
+    const uploadRes = await createUploadUrl(slug, ext);
+    if (!uploadRes.success || !uploadRes.data) {
+      throw new Error(uploadRes.message || 'Erro ao gerar URL assinada de upload.');
+    }
+
+    const { token, path, publicUrl } = uploadRes.data;
+
+    // 2. Fazer o upload seguro usando a autorização temporária da URL assinada
     const { error: uploadError } = await supabase.storage
       .from('product-images')
-      .upload(filePath, readyFile);
+      .uploadToSignedUrl(path, token, readyFile);
 
     if (uploadError) {
       throw uploadError;
     }
 
-    const { data } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
+    return publicUrl;
   };
 
   const handleSaveItem = async (e: React.FormEvent) => {

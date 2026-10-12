@@ -251,11 +251,11 @@ flowchart LR
 - **Escopo:** `parseBatch(text)` → `{ title, price, description, error? }[]`. Suporta `R$ 89,90`, `89,90`, `120.00`, `45 reais`, `R$50`, `1.299,90`; remove numeração (`1.`, `1)`, `-`, `•`); linhas vazias ignoradas; linha sem preço → `price: null` com aviso.
 - **Critérios de aceite:** [x] ≥ 15 casos de teste, incluindo os do blueprint; [x] função pura.
 
-### T18 — Modal de importação em lote ⬜
+### T18 — Modal de importação em lote ✅
 - **Requisitos:** RF06 · **Depende de:** T01, T05, T17
-- **Arquivos:** `src/components/store/BatchImportModal.tsx` (novo), `src/app/actions.ts`
+- **Arquivos:** `src/components/store/BatchImportModal.tsx` (novo), `src/app/actions/batch.ts` (novo) + testes, `src/components/store/StoreHeader.tsx`
 - **Escopo:** textarea → pré-visualização editável (título/preço) → `createItemsBatch(slug, items[])` com Zod, limite de 100 itens por lote, inserção em um único `insert`.
-- **Critérios de aceite:** [ ] linhas com erro destacadas e bloqueiam envio até correção ou remoção; [ ] build + lint passam.
+- **Critérios de aceite:** [x] linhas com erro destacadas e bloqueiam envio até correção ou remoção; [x] build + lint passam.
 
 ### T19 — Botão Concierge ✅
 - **Requisitos:** RF08 · **Depende de:** T05 · **Decisão:** D8
@@ -269,12 +269,12 @@ flowchart LR
 - **Escopo:** `heic2any` por import dinâmico com webpackIgnore; `createImageBitmap(file, { imageOrientation: 'from-image' })` quando disponível (corrige EXIF); step-down até 1280px; WebP 0.82; fallback devolve o arquivo original se a compressão falhar. Indicador "Otimizando foto…".
 - **Critérios de aceite:** [x] `heic2any` não entra no bundle inicial; [x] build + lint passam; [x] item de checklist manual para teste no iPhone.
 
-### T21 — Upload assinado pelo servidor ⬜
+### T21 — Upload assinado pelo servidor ✅
 - **Requisitos:** RNF06 · **Depende de:** T02, T20 · **Decisão:** D7
-- **Arquivos:** `src/app/actions.ts`, formulário de item, `supabase/migrations/002_storage_policies.sql`
-- **Escopo:** action `createUploadUrl(slug, ext)` (autenticada) usa `createSignedUploadUrl` em `product-images/<namespace_id>/<uuid>.jpg`; cliente usa `uploadToSignedUrl`. Migração remove a policy de INSERT anônimo.
-- **Critérios de aceite:** [ ] caminho do arquivo sempre prefixado pelo `namespace_id`; [ ] build + lint passam.
-- **Ação do dono:** aplicar a migração 002 **depois** de publicar o código.
+- **Arquivos:** `src/app/actions/upload.ts` (novo) + testes, `src/lib/storeAuth.ts` (novo) + testes, `src/components/store/ItemFormModal.tsx`, `supabase/migrations/002_storage_policies.sql` + testes PGlite
+- **Escopo:** action `createUploadUrl(slug, ext)` (autenticada) usa `createSignedUploadUrl` em `product-images/<namespace_id>/<uuid>.<ext>`; cliente usa `uploadToSignedUrl`. Migração remove a policy de INSERT anônimo.
+- **Critérios de aceite:** [x] caminho do arquivo sempre prefixado pelo `namespace_id`; [x] build + lint passam.
+- **Ação do dono:** aplicar a migração 002 no SQL Editor do Supabase após o deploy.
 
 ---
 
@@ -284,9 +284,11 @@ flowchart LR
 - **Requisitos:** RF15 · **Depende de:** T14, T16
 - **Escopo:** actions de escrita retornam erro quando `!canEdit`; `/[slug]` em `paused`/`blocked` exibe página cortês com botão de WhatsApp da loja; `grace` mantém vitrine pública.
 
-### T23 — Rodapé white-label (plano Anual) ⬜
+### T23 — Rodapé white-label (plano Anual) ✅
 - **Requisitos:** RF02 · **Depende de:** T06, T07
-- **Escopo:** toggle nas configurações visível apenas com `plan = 'annual'` e plano válido; grava `is_whitelabel`; rodapé respeita o valor.
+- **Arquivos:** `src/components/store/StoreFooter.tsx`, `src/app/[slug]/page.tsx`, `src/components/store/__tests__/StoreFooter.test.tsx`
+- **Escopo:** ocultação automática do branding StokFácil no rodapé quando `plan === 'annual'` ou `isWhiteLabel === true`, mantendo rodapé neutro da loja; nos demais planos exibe branding oficial com link para `/`.
+- **Critérios de aceite:** [x] branding ocultado no plano anual; [x] links externos seguros; [x] build + lint + test passam.
 
 ### T24 — Upload de fotos em esteira ⬜
 - **Requisitos:** RF07 · **Depende de:** T18, T21

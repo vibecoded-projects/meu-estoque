@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Save, Phone, AlertCircle, Copy, Check, Link2 } from 'lucide-react';
+import { Pencil, Save, Phone, AlertCircle, Copy, Check, Link2, ListPlus } from 'lucide-react';
 import { updateNamespace, markShared } from '@/app/actions';
 import { formatBrazilianPhone, normalizeBrazilianPhone } from '@/lib/phone';
 import { copyToClipboard, getStoreUrl } from '@/lib/share';
 import type { Namespace } from '@/lib/types';
+import { BatchImportModal } from './BatchImportModal';
 
 function InstagramIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
   return (
@@ -34,6 +35,7 @@ interface StoreHeaderProps {
   isAuthenticated: boolean;
   onUpdateNamespace?: (updated: Namespace) => void;
   onShared?: () => void;
+  onImportSuccess?: () => void;
 }
 
 export function StoreHeader({
@@ -42,6 +44,7 @@ export function StoreHeader({
   isAuthenticated,
   onUpdateNamespace,
   onShared,
+  onImportSuccess,
 }: StoreHeaderProps) {
   const [isEditingHeader, setIsEditingHeader] = useState(false);
   const [headerName, setHeaderName] = useState(namespace.name || slug);
@@ -51,6 +54,7 @@ export function StoreHeader({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSavingHeader, setIsSavingHeader] = useState(false);
   const [isBioCopied, setIsBioCopied] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
   const startEditing = () => {
     setHeaderName(namespace.name || slug);
@@ -339,14 +343,25 @@ export function StoreHeader({
                 )}
               </div>
               {isAuthenticated && (
-                <button
-                  type="button"
-                  onClick={startEditing}
-                  className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shrink-0 ml-4"
-                  title="Editar dados da loja"
-                >
-                  <Pencil size={18} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0 ml-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsBatchModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors shadow-sm"
+                    title="Importar produtos em lote"
+                  >
+                    <ListPlus size={16} />
+                    <span>Importar em lote</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startEditing}
+                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Editar dados da loja"
+                  >
+                    <Pencil size={18} />
+                  </button>
+                </div>
               )}
             </div>
 
@@ -397,6 +412,15 @@ export function StoreHeader({
           </div>
         )}
       </div>
+
+      {isAuthenticated && (
+        <BatchImportModal
+          isOpen={isBatchModalOpen}
+          onClose={() => setIsBatchModalOpen(false)}
+          slug={slug}
+          onSuccess={onImportSuccess}
+        />
+      )}
     </header>
   );
 }

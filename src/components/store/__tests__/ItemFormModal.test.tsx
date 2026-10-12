@@ -10,6 +10,7 @@ vi.mock('@/lib/supabase', () => ({
     storage: {
       from: vi.fn().mockReturnValue({
         upload: vi.fn(),
+        uploadToSignedUrl: vi.fn().mockResolvedValue({ error: null }),
         getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://cdn.test/img.webp' } }),
       }),
     },
@@ -19,6 +20,18 @@ vi.mock('@/lib/supabase', () => ({
 vi.mock('@/app/actions', () => ({
   createItem: vi.fn(),
   updateItem: vi.fn(),
+}));
+
+vi.mock('@/app/actions/upload', () => ({
+  createUploadUrl: vi.fn().mockResolvedValue({
+    success: true,
+    data: {
+      signedUrl: 'https://storage.supabase.co/upload/sign/mock',
+      token: 'mock-token',
+      path: 'store-123/mock.webp',
+      publicUrl: 'https://cdn.test/img.webp',
+    },
+  }),
 }));
 
 describe('ItemFormModal — Modal de Produto e Upload com Compressão (T20)', () => {
