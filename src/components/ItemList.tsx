@@ -10,24 +10,30 @@ import { ItemFormModal } from './store/ItemFormModal';
 import { ProductModal } from './store/ProductModal';
 import { ItemCard } from './store/ItemCard';
 import { ItemRow } from './store/ItemRow';
+import { ConciergeButton } from './store/ConciergeButton';
+import { TrialBanner } from './store/TrialBanner';
+import { getStoreLifecycle, type StoreLifecycle } from '@/lib/lifecycle';
 
 export function ItemList({
   initialItems,
   slug,
   isAuthenticated: initialAuth,
   namespace: initialNamespace,
+  lifecycle: initialLifecycle,
   onShared,
 }: {
   initialItems: Item[];
   slug: string;
   isAuthenticated: boolean;
   namespace: Namespace;
+  lifecycle?: StoreLifecycle;
   onShared?: () => void;
 }) {
   const [items, setItems] = useState<Item[]>(initialItems);
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuth);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [namespace, setNamespace] = useState(initialNamespace);
+  const lifecycle = initialLifecycle ?? getStoreLifecycle(namespace);
 
   // Modais de Ação
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -91,9 +97,7 @@ export function ItemList({
     e.stopPropagation();
     const res = await toggleItemSold(slug, id, currentStatus);
     if (res.success) {
-      setItems((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, is_sold: !currentStatus } : item))
-      );
+      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, is_sold: !currentStatus } : item)));
     } else {
       alert(res.message);
     }
@@ -101,6 +105,13 @@ export function ItemList({
 
   return (
     <>
+      <TrialBanner
+        lifecycle={lifecycle}
+        isAuthenticated={isAuthenticated}
+        slug={slug}
+        storeName={namespace.name}
+      />
+
       <StoreHeader
         slug={slug}
         namespace={namespace}
@@ -115,16 +126,12 @@ export function ItemList({
             onClick={() => setViewMode('grid')}
             className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-slate-100 text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             title="Visualização em Grade"
-          >
-            <LayoutGrid size={20} />
-          </button>
+          ><LayoutGrid size={20} /></button>
           <button
             onClick={() => setViewMode('list')}
             className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-slate-100 text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             title="Visualização em Lista"
-          >
-            <ListIcon size={20} />
-          </button>
+          ><ListIcon size={20} /></button>
         </div>
 
         {!isAuthenticated ? (
@@ -155,6 +162,15 @@ export function ItemList({
         )}
       </div>
 
+      {isAuthenticated && (
+        <ConciergeButton
+          itemsCount={items.length}
+          slug={slug}
+          storeName={namespace.name}
+          isAuthenticated={isAuthenticated}
+        />
+      )}
+
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm">
           <ImageIcon className="text-slate-300 mb-4" size={64} />
@@ -162,13 +178,7 @@ export function ItemList({
           <p className="text-slate-400 text-sm mt-1">Sua vitrine está vazia no momento.</p>
         </div>
       ) : (
-        <div
-          className={
-            viewMode === 'grid'
-              ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6'
-              : 'flex flex-col gap-3 sm:gap-4'
-          }
-        >
+        <div className={viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6' : 'flex flex-col gap-3 sm:gap-4'}>
           {items.map((item) =>
             viewMode === 'grid' ? (
               <ItemCard
@@ -216,7 +226,6 @@ export function ItemList({
         onDelete={(id, e) => handleDelete(id, e)}
         onShared={onShared}
       />
-
       {/* Modal de Autenticação */}
       <AuthModal
         isOpen={isAuthModalOpen}
@@ -227,7 +236,6 @@ export function ItemList({
         }}
         onClose={() => setIsAuthModalOpen(false)}
       />
-
       {/* Modal de Adicionar/Editar Item */}
       <ItemFormModal
         isOpen={isItemModalOpen}

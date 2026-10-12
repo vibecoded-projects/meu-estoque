@@ -5,6 +5,7 @@ import { checkAuth } from '@/app/actions';
 import { notFound } from 'next/navigation';
 import { ItemList } from '@/components/ItemList';
 import { StoreFooter } from '@/components/store/StoreFooter';
+import { getStoreLifecycle } from '@/lib/lifecycle';
 import type { Namespace } from '@/lib/types';
 
 export const revalidate = 0; // Para garantir que os dados estejam sempre atualizados no SSR inicial se precisarmos
@@ -78,6 +79,9 @@ export default async function NamespacePage({ params }: PageProps) {
     .eq('namespace_id', namespace.id)
     .order('created_at', { ascending: false });
 
+  // 4. Calcular o ciclo de vida da loja para alertas e renovação
+  const lifecycle = getStoreLifecycle(namespace);
+
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8 flex flex-col justify-between">
       <div className="max-w-4xl mx-auto space-y-6 w-full">
@@ -86,6 +90,7 @@ export default async function NamespacePage({ params }: PageProps) {
           slug={slug} 
           isAuthenticated={isAuthenticated} 
           namespace={namespace}
+          lifecycle={lifecycle}
         />
       </div>
       <StoreFooter isWhiteLabel={namespace.is_whitelabel} />
