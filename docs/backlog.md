@@ -140,7 +140,7 @@ flowchart LR
 
 ## Fase 1 — Conversão e WhatsApp (MVP de vendas)
 
-### T06 — Rebranding StokFácil 🔄
+### T06 — Rebranding StokFácil ✅
 - **Requisitos:** RF01 · **Depende de:** T05 · **Decisão:** D8
 - **Arquivos:** `src/app/layout.tsx`, `src/app/page.tsx`, `src/app/[slug]/page.tsx`, componentes de `store/`
 - **Escopo:** nome "StokFácil" e slogan *"Seu estoque no bolso, suas vendas no WhatsApp"*; `metadata` com `metadataBase` (`NEXT_PUBLIC_SITE_URL`), OpenGraph e Twitter; `generateMetadata` em `/[slug]` com nome da loja; `lang="pt-BR"`; rodapé da vitrine *"Criado com StokFácil — Crie sua vitrine grátis"* linkando para `/`.
