@@ -8,6 +8,7 @@ import {
   deleteItem,
   toggleItemSold,
   updateNamespace,
+  markShared,
 } from '@/app/actions';
 import {
   itemSchema,
@@ -38,6 +39,17 @@ interface RecordedQuery {
 let recordedQueries: RecordedQuery[] = [];
 const cookiesMap = new Map<string, string>();
 
+let mockNamespaceState: Record<string, unknown> = {
+  id: 'ns-carol-123',
+  slug: 'loja-carol',
+  trial_starts_at: '2026-10-01T00:00:00.000Z',
+  trial_expires_at: '2026-10-15T00:00:00.000Z',
+  trial_extended: false,
+  activation_completed: false,
+  first_shared_at: null,
+};
+let mockItemsCount = 0;
+
 function createFakeQueryBuilder(table: string) {
   const query: RecordedQuery = {
     table,
@@ -59,6 +71,9 @@ function createFakeQueryBuilder(table: string) {
     update(data: unknown) {
       query.operation = 'update';
       query.payload = data;
+      if (query.table === 'namespaces' && data && typeof data === 'object') {
+        Object.assign(mockNamespaceState, data);
+      }
       return builder;
     },
     delete() {
@@ -73,7 +88,7 @@ function createFakeQueryBuilder(table: string) {
       return Promise.resolve(builder.resolveResult());
     },
     then<TResult1 = unknown, TResult2 = never>(
-      onfulfilled?: ((value: { data: unknown; error: unknown }) => TResult1 | PromiseLike<TResult1>) | null,
+      onfulfilled?: ((value: { data: unknown; error: unknown; count?: number }) => TResult1 | PromiseLike<TResult1>) | null,
       onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
     ) {
       return Promise.resolve(builder.resolveResult()).then(onfulfilled, onrejected);
@@ -81,9 +96,13 @@ function createFakeQueryBuilder(table: string) {
     resolveResult() {
       if (query.table === 'namespaces' && query.operation === 'select') {
         const slugEq = query.eqCalls.find((c) => c.column === 'slug');
-        if (slugEq && slugEq.value === 'loja-carol') {
+        const idEq = query.eqCalls.find((c) => c.column === 'id');
+        if (
+          (slugEq && slugEq.value === 'loja-carol') ||
+          (idEq && idEq.value === 'ns-carol-123')
+        ) {
           return {
-            data: { id: 'ns-carol-123', slug: 'loja-carol' },
+            data: { ...mockNamespaceState },
             error: null,
           };
         }
@@ -97,6 +116,10 @@ function createFakeQueryBuilder(table: string) {
           return { data: { id: 'code-1' }, error: null };
         }
         return { data: null, error: { message: 'Invalid code' } };
+      }
+
+      if (query.table === 'items' && query.operation === 'select') {
+        return { data: [], count: mockItemsCount, error: null };
       }
 
       // Default para items ou outras operações (update, insert, delete)
@@ -164,6 +187,16 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
     recordedQueries = [];
     cookiesMap.clear();
     revalidatePathMock.mockClear();
+    mockNamespaceState = {
+      id: 'ns-carol-123',
+      slug: 'loja-carol',
+      trial_starts_at: '2026-10-01T00:00:00.000Z',
+      trial_expires_at: '2026-10-15T00:00:00.000Z',
+      trial_extended: false,
+      activation_completed: false,
+      first_shared_at: null,
+    };
+    mockItemsCount = 0;
   });
 
   describe('(1) Tenant Isolation em items', () => {
@@ -810,6 +843,178 @@ describe('Server Actions — T01 Tenant Isolation & Validation', () => {
             'Instagram deve ter no máximo 30 caracteres.'
           );
         }
+      });
+    });
+  });
+
+  describe('markShared e Ativação Progressiva 14+16 dias (T15 / RF13 / D3)', () => {
+    it('rejeita markShared sem cookie de autenticação', async () => {
+      const res = await markShared('loja-carol');
+      expect(res.success).toBe(false);
+      expect(res.message).toBe('Não autorizado.');
+
+      const nsUpdates = recordedQueries.filter(
+        (q) => q.table === 'namespaces' && q.operation === 'update'
+      );
+      expect(nsUpdates).toHaveLength(0);
+    });
+
+    it('rejeita markShared com slug inexistente ou diferente do autenticado', async () => {
+      setAuthenticatedSessionCookie('loja-carol');
+      const res = await markShared('loja-inexistente');
+      expect(res.success).toBe(false);
+      expect(res.message).toBe('Não autorizado.');
+    });
+
+    describe('loja autenticada', () => {
+      beforeEach(() => {
+        setAuthenticatedSessionCookie('loja-carol');
+      });
+
+      it('primeiro compartilhamento com menos de 5 itens: registra first_shared_at mas não estende trial', async () => {
+        mockItemsCount = 2;
+        mockNamespaceState.first_shared_at = null;
+        mockNamespaceState.trial_extended = false;
+        mockNamespaceState.activation_completed = false;
+
+        const res = await markShared('loja-carol');
+
+        expect(res.success).toBe(true);
+        expect(res.data).toEqual({ extended: false });
+        expect(res.message).toBe('Compartilhamento registrado com sucesso!');
+
+        // Verifica que atualizou first_shared_at no banco
+        const nsUpdates = recordedQueries.filter(
+          (q) => q.table === 'namespaces' && q.operation === 'update'
+        );
+        expect(nsUpdates.length).toBeGreaterThanOrEqual(1);
+
+        const shareUpdate = nsUpdates.find(
+          (q) =>
+            q.payload &&
+            typeof q.payload === 'object' &&
+            'first_shared_at' in (q.payload as Record<string, unknown>)
+        );
+        expect(shareUpdate).toBeDefined();
+
+        // Não deve ter atualizado trial_extended
+        expect(mockNamespaceState.trial_extended).toBe(false);
+        expect(mockNamespaceState.activation_completed).toBe(false);
+
+        expect(revalidatePathMock).toHaveBeenCalledWith('/loja-carol');
+      });
+
+      it('chamada quando já compartilhado: não sobrescreve first_shared_at (D3)', async () => {
+        const existingDate = '2026-10-02T10:00:00.000Z';
+        mockItemsCount = 3;
+        mockNamespaceState.first_shared_at = existingDate;
+        mockNamespaceState.trial_extended = false;
+
+        const res = await markShared('loja-carol');
+
+        expect(res.success).toBe(true);
+        expect(res.data).toEqual({ extended: false });
+
+        // Não deve ter feito nenhum update de first_shared_at
+        const nsUpdates = recordedQueries.filter(
+          (q) => q.table === 'namespaces' && q.operation === 'update'
+        );
+        expect(nsUpdates).toHaveLength(0);
+        expect(mockNamespaceState.first_shared_at).toBe(existingDate);
+      });
+
+      it('primeiro compartilhamento com 5 ou mais itens: estende trial para 30 dias automaticamente', async () => {
+        const trialStartsAt = '2026-10-01T00:00:00.000Z';
+        mockItemsCount = 5;
+        mockNamespaceState.first_shared_at = null;
+        mockNamespaceState.trial_starts_at = trialStartsAt;
+        mockNamespaceState.trial_extended = false;
+        mockNamespaceState.activation_completed = false;
+
+        const res = await markShared('loja-carol');
+
+        expect(res.success).toBe(true);
+        expect(res.data).toEqual({ extended: true });
+        expect(res.message).toContain('30 dias');
+
+        // Verifica que estendeu o trial
+        expect(mockNamespaceState.trial_extended).toBe(true);
+        expect(mockNamespaceState.activation_completed).toBe(true);
+
+        // Data esperada: 2026-10-01 + 30 dias = 2026-10-31T00:00:00.000Z
+        const expectedExpiresAt = new Date(
+          new Date(trialStartsAt).getTime() + 30 * 24 * 60 * 60 * 1000
+        ).toISOString();
+        expect(mockNamespaceState.trial_expires_at).toBe(expectedExpiresAt);
+
+        expect(revalidatePathMock).toHaveBeenCalledWith('/loja-carol');
+      });
+
+      it('idempotência: não re-estende trial se trial_extended já for true', async () => {
+        mockItemsCount = 8;
+        mockNamespaceState.first_shared_at = '2026-10-02T10:00:00.000Z';
+        mockNamespaceState.trial_extended = true;
+        mockNamespaceState.activation_completed = true;
+        const originalExpiresAt = '2026-10-31T00:00:00.000Z';
+        mockNamespaceState.trial_expires_at = originalExpiresAt;
+
+        const res = await markShared('loja-carol');
+
+        expect(res.success).toBe(true);
+        expect(res.data).toEqual({ extended: false });
+        expect(mockNamespaceState.trial_expires_at).toBe(originalExpiresAt);
+
+        // Nenhum update em namespaces deve ter sido executado
+        const nsUpdates = recordedQueries.filter(
+          (q) => q.table === 'namespaces' && q.operation === 'update'
+        );
+        expect(nsUpdates).toHaveLength(0);
+      });
+
+      it('createItem: estende trial para 30 dias ao cadastrar o 5º item se a loja já compartilhou a vitrine', async () => {
+        const trialStartsAt = '2026-10-01T00:00:00.000Z';
+        mockItemsCount = 5; // Com o novo item inserido, totaliza 5
+        mockNamespaceState.first_shared_at = '2026-10-02T10:00:00.000Z';
+        mockNamespaceState.trial_starts_at = trialStartsAt;
+        mockNamespaceState.trial_extended = false;
+        mockNamespaceState.activation_completed = false;
+
+        const formData = createItemFormData({
+          title: 'Quinto Produto',
+          price: '49.90',
+        });
+
+        const res = await createItem('loja-carol', formData);
+
+        expect(res.success).toBe(true);
+        expect(res.message).toBe('Item criado!');
+
+        // Verifica que o trial foi estendido no banco
+        expect(mockNamespaceState.trial_extended).toBe(true);
+        expect(mockNamespaceState.activation_completed).toBe(true);
+
+        const expectedExpiresAt = new Date(
+          new Date(trialStartsAt).getTime() + 30 * 24 * 60 * 60 * 1000
+        ).toISOString();
+        expect(mockNamespaceState.trial_expires_at).toBe(expectedExpiresAt);
+      });
+
+      it('createItem: não estende trial ao cadastrar o 5º item se a loja ainda não compartilhou a vitrine', async () => {
+        mockItemsCount = 5;
+        mockNamespaceState.first_shared_at = null; // Não compartilhou
+        mockNamespaceState.trial_extended = false;
+        mockNamespaceState.activation_completed = false;
+
+        const formData = createItemFormData({
+          title: 'Quinto Produto',
+          price: '49.90',
+        });
+
+        const res = await createItem('loja-carol', formData);
+
+        expect(res.success).toBe(true);
+        expect(mockNamespaceState.trial_extended).toBe(false);
+        expect(mockNamespaceState.activation_completed).toBe(false);
       });
     });
   });

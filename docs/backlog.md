@@ -209,14 +209,14 @@ flowchart LR
   - [ ] Testes de token de magic link (válido, expirado, slug trocado, purpose errado).
   - [ ] build + lint + test passam.
 
-### T13 — Script do operador: ativar loja a partir de um lead ⬜
+### T13 — Script do operador: ativar loja a partir de um lead ✅
 - **Depende de:** T03 (aplicada), T12
-- **Arquivos:** `scripts/activate-lead.ts` (novo), `package.json` (script `ops:activate`)
+- **Arquivos:** `scripts/activate-lead.ts` (novo), `src/lib/activate-lead.ts` (novo), `src/lib/__tests__/activateLead.test.ts` (novo), `package.json` (script `ops:activate`)
 - **Escopo:** recebe slug do lead → cria `namespace` (nome, whatsapp, trial de 14 dias) + PIN aleatório de 4 dígitos em `namespace_codes` → marca lead como `converted` → imprime mensagem pronta para colar no WhatsApp (link da vitrine, PIN, Magic Link). Opção `--dry-run`.
 - **Critérios de aceite:**
-  - [ ] `--dry-run` não grava nada.
-  - [ ] Falha com mensagem clara se o slug já existe em `namespaces`.
-  - [ ] Reutiliza `signToken` de `session.ts` (sem duplicar lógica).
+  - [x] `--dry-run` não grava nada.
+  - [x] Falha com mensagem clara se o slug já existe em `namespaces`.
+  - [x] Reutiliza `signToken` de `session.ts` (sem duplicar lógica).
 
 ---
 
@@ -227,17 +227,17 @@ flowchart LR
 - **Arquivos:** `src/lib/lifecycle.ts` (novo) + testes
 - **Escopo:** `getStoreLifecycle(ns, now)` → `{ state: 'active'|'grace'|'paused'|'blocked', daysLeft, canEdit, isPublic, showRenewalBanner }`. Regras: plano pago válido → active; trial ativo → active; até 7 dias após expirar → grace (sem edição, público); depois → paused; `status = 'blocked'` → blocked. Banner quando `daysLeft ≤ 5`.
 - **Critérios de aceite:**
-  - [ ] Testes cobrem cada transição e as fronteiras (dia exato de expiração, D+7, D+8).
-  - [ ] Sem I/O (função pura).
+  - [x] Testes cobrem cada transição e as fronteiras (dia exato de expiração, D+7, D+8).
+  - [x] Sem I/O (função pura).
 
-### T15 — Ativação progressiva 14+16 dias ⬜
+### T15 — Ativação progressiva 14+16 dias ✅
 - **Requisitos:** RF13 · **Depende de:** T09, T14 · **Decisão:** D3
-- **Arquivos:** `src/app/actions.ts`, `src/lib/activation.ts` (novo) + teste
+- **Arquivos:** `src/app/actions.ts`, `src/lib/activation.ts` (novo) + teste, `src/components/store/StoreHeader.tsx`
 - **Escopo:** action `markShared(slug)` grava `first_shared_at` (se nulo); após `createItem`/`markShared`, se `items ≥ 5` **e** `first_shared_at` preenchido **e** `!trial_extended` → `trial_expires_at = trial_starts_at + 30 dias`, `trial_extended = true`, `activation_completed = true`. Operação idempotente.
 - **Critérios de aceite:**
-  - [ ] Teste da regra de elegibilidade (função pura).
-  - [ ] Chamar duas vezes não estende duas vezes.
-  - [ ] build + lint + test passam.
+  - [x] Teste da regra de elegibilidade (função pura).
+  - [x] Chamar duas vezes não estende duas vezes.
+  - [x] build + lint + test passam.
 
 ### T16 — Banner de expiração e renovação via Pix ✅
 - **Requisitos:** RF14 · **Depende de:** T14 · **Decisão:** D8
@@ -249,7 +249,7 @@ flowchart LR
 - **Requisitos:** RF06, blueprint 3.3 · **Depende de:** T04
 - **Arquivos:** `src/lib/batchParser.ts` (novo) + testes
 - **Escopo:** `parseBatch(text)` → `{ title, price, description, error? }[]`. Suporta `R$ 89,90`, `89,90`, `120.00`, `45 reais`, `R$50`, `1.299,90`; remove numeração (`1.`, `1)`, `-`, `•`); linhas vazias ignoradas; linha sem preço → `price: null` com aviso.
-- **Critérios de aceite:** [ ] ≥ 15 casos de teste, incluindo os do blueprint; [ ] função pura.
+- **Critérios de aceite:** [x] ≥ 15 casos de teste, incluindo os do blueprint; [x] função pura.
 
 ### T18 — Modal de importação em lote ⬜
 - **Requisitos:** RF06 · **Depende de:** T01, T05, T17
@@ -263,11 +263,11 @@ flowchart LR
 - **Escopo:** visível no painel autenticado quando a loja tem < 5 itens (e discretamente depois), texto do RF08 mencionando **até 15 peças**, link `wa.me` para o admin.
 - **Critérios de aceite:** [x] build + lint passam.
 
-### T20 — Compressão de imagens com suporte a HEIC ⬜
+### T20 — Compressão de imagens com suporte a HEIC ✅
 - **Requisitos:** RNF02, blueprint 3.2 · **Depende de:** T05
-- **Arquivos:** `src/lib/imageCompression.ts` (novo), componente de formulário de item, `package.json` (`heic2any`)
-- **Escopo:** `heic2any` por import dinâmico; `createImageBitmap(file, { imageOrientation: 'from-image' })` quando disponível (corrige EXIF); step-down até 1280px; JPEG 0.75; fallback devolve o arquivo original se a compressão falhar. Indicador "Otimizando foto…".
-- **Critérios de aceite:** [ ] `heic2any` não entra no bundle inicial; [ ] build + lint passam; [ ] item de checklist manual para teste no iPhone.
+- **Arquivos:** `src/lib/imageCompression.ts` (novo) + testes, `src/components/store/ItemFormModal.tsx`
+- **Escopo:** `heic2any` por import dinâmico com webpackIgnore; `createImageBitmap(file, { imageOrientation: 'from-image' })` quando disponível (corrige EXIF); step-down até 1280px; WebP 0.82; fallback devolve o arquivo original se a compressão falhar. Indicador "Otimizando foto…".
+- **Critérios de aceite:** [x] `heic2any` não entra no bundle inicial; [x] build + lint passam; [x] item de checklist manual para teste no iPhone.
 
 ### T21 — Upload assinado pelo servidor ⬜
 - **Requisitos:** RNF06 · **Depende de:** T02, T20 · **Decisão:** D7

@@ -13,6 +13,7 @@ import {
   verifyToken,
   SESSION_DURATION_SECONDS,
 } from '@/lib/session';
+import { evaluateProgressiveTrial } from '@/lib/activation';
 
 // Tipagem base
 export type ActionResponse = {
@@ -165,6 +166,44 @@ export async function createItem(slug: string, formData: FormData): Promise<Acti
 
   if (error) {
     return { success: false, message: 'Erro ao criar item.' };
+  }
+
+  // Ativação progressiva (T15 / RF13 / D3):
+  // Se a loja já compartilhou a vitrine e ainda não estendeu o trial,
+  // conta os itens; se atingiu 5 itens, estende o trial para 30 dias.
+  const { data: namespace } = await supabaseAdmin
+    .from('namespaces')
+    .select('id, slug, first_shared_at, trial_starts_at, trial_extended, created_at')
+    .eq('id', store.id)
+    .single();
+
+  if (namespace && namespace.first_shared_at && !namespace.trial_extended) {
+    const { count } = await supabaseAdmin
+      .from('items')
+      .select('id', { count: 'exact', head: true })
+      .eq('namespace_id', store.id);
+
+    const itemsCount = count ?? 0;
+    const trialStartsAt =
+      namespace.trial_starts_at || namespace.created_at || new Date().toISOString();
+
+    const evaluation = evaluateProgressiveTrial({
+      itemsCount,
+      firstSharedAt: namespace.first_shared_at,
+      trialStartsAt,
+      trialExtended: Boolean(namespace.trial_extended),
+    });
+
+    if (evaluation.isEligible && evaluation.newTrialExpiresAt) {
+      await supabaseAdmin
+        .from('namespaces')
+        .update({
+          trial_expires_at: evaluation.newTrialExpiresAt.toISOString(),
+          trial_extended: true,
+          activation_completed: true,
+        })
+        .eq('id', store.id);
+    }
   }
 
   revalidatePath(`/${slug}`);
@@ -331,3 +370,91 @@ export async function updateNamespace(slug: string, formData: FormData): Promise
   revalidatePath(`/${slug}`);
   return { success: true, message: 'Loja atualizada com sucesso!' };
 }
+
+// Marcar compartilhamento e avaliar ativação progressiva 14+16 dias (T15 / RF13 / D3)
+export async function markShared(slug: string): Promise<ActionResponse> {
+  const authResult = await requireStore(slug);
+  if (!authResult.success) {
+    return { success: false, message: authResult.error };
+  }
+  const { store } = authResult;
+
+  // 1. Buscar dados da loja para validação e datas de trial
+  const { data: namespace, error: nsError } = await supabaseAdmin
+    .from('namespaces')
+    .select('id, slug, first_shared_at, trial_starts_at, trial_extended, created_at')
+    .eq('id', store.id)
+    .single();
+
+  if (nsError || !namespace) {
+    return { success: false, message: 'Loja não encontrada.' };
+  }
+
+  let firstSharedAt = namespace.first_shared_at;
+
+  // 2. Se first_shared_at for nulo, registra a data atual (D3: registrado uma única vez)
+  if (!firstSharedAt) {
+    const nowIso = new Date().toISOString();
+    firstSharedAt = nowIso;
+    const { error: updateShareError } = await supabaseAdmin
+      .from('namespaces')
+      .update({ first_shared_at: nowIso })
+      .eq('id', store.id);
+
+    if (updateShareError) {
+      return { success: false, message: 'Erro ao registrar compartilhamento.' };
+    }
+  }
+
+  // 3. Contar itens cadastrados da loja
+  const { count, error: countError } = await supabaseAdmin
+    .from('items')
+    .select('id', { count: 'exact', head: true })
+    .eq('namespace_id', store.id);
+
+  if (countError) {
+    return { success: false, message: 'Erro ao verificar itens da loja.' };
+  }
+
+  const itemsCount = count ?? 0;
+  const trialStartsAt =
+    namespace.trial_starts_at || namespace.created_at || new Date().toISOString();
+
+  // 4. Avaliar elegibilidade do trial progressivo
+  const evaluation = evaluateProgressiveTrial({
+    itemsCount,
+    firstSharedAt,
+    trialStartsAt,
+    trialExtended: Boolean(namespace.trial_extended),
+  });
+
+  let extended = false;
+
+  if (evaluation.isEligible && evaluation.newTrialExpiresAt) {
+    const { error: extendError } = await supabaseAdmin
+      .from('namespaces')
+      .update({
+        trial_expires_at: evaluation.newTrialExpiresAt.toISOString(),
+        trial_extended: true,
+        activation_completed: true,
+      })
+      .eq('id', store.id);
+
+    if (extendError) {
+      return { success: false, message: 'Erro ao estender período de teste.' };
+    }
+
+    extended = true;
+  }
+
+  revalidatePath(`/${slug}`);
+
+  return {
+    success: true,
+    message: extended
+      ? 'Compartilhamento registrado! Seu período de teste foi estendido para 30 dias.'
+      : 'Compartilhamento registrado com sucesso!',
+    data: { extended },
+  };
+}
+

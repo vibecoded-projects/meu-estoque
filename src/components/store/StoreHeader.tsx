@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Pencil, Save, Phone, AlertCircle, Copy, Check, Link2 } from 'lucide-react';
-import { updateNamespace } from '@/app/actions';
+import { updateNamespace, markShared } from '@/app/actions';
 import { formatBrazilianPhone, normalizeBrazilianPhone } from '@/lib/phone';
 import { copyToClipboard, getStoreUrl } from '@/lib/share';
 import type { Namespace } from '@/lib/types';
@@ -157,6 +157,31 @@ export function StoreHeader({
     if (ok) {
       setIsBioCopied(true);
       onShared?.();
+
+      // Ativação progressiva (T15 / D3):
+      // Se a vitrine ainda não foi compartilhada (first_shared_at nulo),
+      // registra o compartilhamento em segundo plano sem bloquear a UI.
+      if (!namespace.first_shared_at) {
+        markShared(namespace.slug || slug)
+          .then((res) => {
+            if (res.success && onUpdateNamespace) {
+              const extended = Boolean(
+                res.data && (res.data as { extended?: boolean }).extended
+              );
+              onUpdateNamespace({
+                ...namespace,
+                first_shared_at: new Date().toISOString(),
+                ...(extended
+                  ? { trial_extended: true, activation_completed: true }
+                  : {}),
+              });
+            }
+          })
+          .catch((err) => {
+            console.error('[StoreHeader] Erro ao registrar compartilhamento:', err);
+          });
+      }
+
       setTimeout(() => setIsBioCopied(false), 3000);
     }
   };
