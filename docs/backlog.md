@@ -179,7 +179,7 @@ flowchart LR
   - [ ] Teste de `buildCaption`.
   - [ ] build + lint + test passam.
 
-### T10 — Landing Page e seção de planos 🔄
+### T10 — Landing Page e seção de planos ✅
 - **Requisitos:** RF05 · **Depende de:** T06
 - **Arquivos:** `src/app/page.tsx`, `src/components/landing/Hero.tsx`, `src/components/landing/PricingSection.tsx`, `src/lib/plans.ts`
 - **Escopo:** Hero mobile-first, link para a loja demo, grade de planos a partir de `plans.ts` (Mensal R$ 39, Trimestral R$ 99, Semestral R$ 169, **Anual R$ 299 ≈ R$ 24,90/mês** em destaque com Setup VIP 15 itens, White-label e PDF de balcão). CTA rola até `#pedir-acesso` (placeholder para T11).
