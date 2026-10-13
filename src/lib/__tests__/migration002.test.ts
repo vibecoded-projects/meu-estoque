@@ -28,24 +28,40 @@ describe('Migração 002 — Políticas de Segurança do Storage (RNF06 / D7)', 
     // 2. Aplica migração 001
     await db.exec(migration001Sql);
 
-    // 3. Simula estado legado com bucket e policy permissiva descritos no schema original
+    // 3. Simula scaffolding nativo do Supabase (schema storage, role service_role e RLS nativo)
+    // No Supabase real, estas estruturas são gerenciadas internamente e já existem quando o SQL Editor é executado.
     await db.exec(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+          CREATE ROLE service_role;
+        END IF;
+      END $$;
+
       CREATE SCHEMA IF NOT EXISTS storage;
       CREATE TABLE IF NOT EXISTS storage.buckets (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        public BOOLEAN DEFAULT false
+        public BOOLEAN DEFAULT false,
+        created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+        updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
       );
       CREATE TABLE IF NOT EXISTS storage.objects (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         bucket_id TEXT REFERENCES storage.buckets(id),
-        name TEXT
+        name TEXT,
+        owner UUID,
+        created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+        updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+        last_accessed_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+        metadata JSONB
       );
-      INSERT INTO storage.buckets (id, name, public) VALUES ('product-images', 'product-images', true)
+      INSERT INTO storage.buckets (id, name, public) VALUES ('product-images', 'product-images', false)
       ON CONFLICT (id) DO NOTHING;
 
       ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
+      -- Simula políticas legadas permissivas pré-existentes
       CREATE POLICY "Public Access" 
       ON storage.objects FOR SELECT 
       USING (bucket_id = 'product-images');
@@ -133,5 +149,14 @@ describe('Migração 002 — Políticas de Segurança do Storage (RNF06 / D7)', 
 
     expect(res.rows).toHaveLength(1);
     expect(res.rows[0].public).toBe(true);
+  });
+
+  it('garante que o arquivo da migração não contém DDLs restritas ou perigosas no schema storage', () => {
+    // No Supabase real, o usuário 'postgres' do SQL Editor não é owner do schema storage nem superuser.
+    // DDLs como CREATE TABLE, CREATE SCHEMA, CREATE ROLE e ENABLE ROW LEVEL SECURITY causam erro 42501 (permission denied).
+    expect(migration002Sql).not.toMatch(/\bCREATE\s+SCHEMA\b/i);
+    expect(migration002Sql).not.toMatch(/\bCREATE\s+TABLE\b/i);
+    expect(migration002Sql).not.toMatch(/\bCREATE\s+ROLE\b/i);
+    expect(migration002Sql).not.toMatch(/\bENABLE\s+ROW\s+LEVEL\s+SECURITY\b/i);
   });
 });
