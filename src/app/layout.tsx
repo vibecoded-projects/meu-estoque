@@ -12,7 +12,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://stokfacil.com";
+const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://stokfacil.com";
+const siteUrl = rawSiteUrl.startsWith("http://") || rawSiteUrl.startsWith("https://")
+  ? rawSiteUrl
+  : `https://${rawSiteUrl}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
