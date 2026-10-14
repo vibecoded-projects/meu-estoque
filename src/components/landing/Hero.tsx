@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Sparkles, ShieldCheck, CreditCard, Store, ExternalLink } from "lucide-react";
+import { ArrowRight, Sparkles, ShieldCheck, CreditCard, Store } from "lucide-react";
 
 export function Hero() {
   const handleScrollToAccess = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -63,11 +63,11 @@ export function Hero() {
         </a>
 
         <Link
-          href="/loja-carol"
+          href="/explorar"
           className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-semibold text-base transition-all focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 shadow-2xs"
         >
-          <span>Acessar /loja-carol</span>
-          <ExternalLink size={17} className="text-slate-500" />
+          <span>Explorar vitrines modelo</span>
+          <ArrowRight size={17} className="text-slate-500" />
         </Link>
       </div>
     </section>

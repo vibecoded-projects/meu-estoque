@@ -71,15 +71,29 @@ test.describe('Home Page — Landing Page & Planos (T10)', () => {
     await expect(page.getByText(/Mais Popular · Melhor Custo-Benefício/i)).toBeVisible();
   });
 
-  test('deve navegar para a loja demo através do CTA no Hero', async ({ page }) => {
+  test('deve navegar para a página de vitrines modelo através do CTA no Hero', async ({ page }) => {
     await page.goto('/');
 
-    // Link para loja demo no Hero
-    const demoLink = page.getByRole('link', { name: /Acessar \/loja-carol/i });
-    await expect(demoLink).toBeVisible();
+    // Link para vitrines modelo no Hero
+    const exploreCta = page.getByRole('link', { name: /Explorar vitrines modelo/i });
+    await expect(exploreCta).toBeVisible();
 
-    await demoLink.click();
-    await expect(page).toHaveURL(/\/loja-carol$/, { timeout: 30000 });
+    await exploreCta.click();
+    await expect(page).toHaveURL(/\/explorar$/, { timeout: 30000 });
+    await expect(
+      page.getByRole('heading', { name: /Vitrines modelo pensadas para o seu segmento/i })
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: /Acessar vitrine interativa/i })).toBeVisible();
+  });
+
+  test('deve navegar para a página de vitrines modelo através do link no rodapé', async ({ page }) => {
+    await page.goto('/');
+
+    const footerLink = page.getByRole('link', { name: /Explorar Lojas/i });
+    await expect(footerLink).toBeVisible();
+
+    await footerLink.click();
+    await expect(page).toHaveURL(/\/explorar$/, { timeout: 30000 });
   });
 });
 

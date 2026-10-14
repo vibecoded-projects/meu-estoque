@@ -29,8 +29,9 @@ vi.mock('@/app/actions', () => ({
   checkAuth: vi.fn().mockResolvedValue(false),
 }));
 
-// Importa generateMetadata dinâmico da página [slug]
+// Importa generateMetadata dinâmico da página [slug] e metadados estáticos de /explorar
 import { generateMetadata } from '@/app/[slug]/page';
+import { metadata as explorarMetadata } from '@/app/explorar/page';
 import { StoreFooter } from '@/components/store/StoreFooter';
 
 describe('Metadados da Aplicação (T06 — Rebranding StokFácil)', () => {
@@ -147,6 +148,24 @@ describe('Metadados da Aplicação (T06 — Rebranding StokFácil)', () => {
     it('deve omitir o rodapé quando white-label estiver ativo', () => {
       const footer = StoreFooter({ isWhiteLabel: true });
       expect(footer).toBeNull();
+    });
+  });
+
+  describe('Explorar Page Metadata (src/app/explorar/page.tsx)', () => {
+    it('deve conter título e descrição focados em vitrines modelo por nicho', () => {
+      expect(explorarMetadata.title).toBe('Explorar Vitrines Modelo');
+      expect(explorarMetadata.description).toContain('vitrines digitais');
+      expect(explorarMetadata.description).toContain('Moda, Cosméticos e Acessórios');
+    });
+
+    it('deve configurar OpenGraph e Twitter Cards para a página /explorar', () => {
+      expect(explorarMetadata.openGraph).toMatchObject({
+        title: 'Explorar Vitrines Modelo | StokFácil',
+      });
+      expect(explorarMetadata.twitter).toMatchObject({
+        card: 'summary_large_image',
+        title: 'Explorar Vitrines Modelo | StokFácil',
+      });
     });
   });
 });

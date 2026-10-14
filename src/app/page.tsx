@@ -50,8 +50,8 @@ export default function Home() {
             <a href="#pedir-acesso" className="hover:text-slate-900 transition-colors">
               Pedir Acesso
             </a>
-            <Link href="/loja-carol" className="hover:text-slate-900 transition-colors">
-              Loja Demo
+            <Link href="/explorar" className="hover:text-slate-900 transition-colors">
+              Explorar Lojas
             </Link>
           </div>
         </div>
