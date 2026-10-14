@@ -186,7 +186,7 @@ describe('whatsapp.ts — buildOrderLink', () => {
       // Ao decodificar, recupera exatamente o texto em português
       const decoded = decodeURIComponent(link!.split('?text=')[1]);
       expect(decoded).toBe(
-        'Olá! Vi o produto Camisão de Botão em Algodão & Calça (R$ 119,90) na sua vitrine StokFácil. Ainda está disponível?'
+        'Olá! Vi o produto Camisão de Botão em Algodão & Calça (R$ 119,90) no seu catálogo StokFácil e quero comprar. Como faço para fechar o pedido?'
       );
     });
 
@@ -200,7 +200,7 @@ describe('whatsapp.ts — buildOrderLink', () => {
       expect(link).not.toBeNull();
       const decoded = decodeURIComponent(link!.split('?text=')[1]);
       expect(decoded).toBe(
-        'Olá! Vi o produto Blusa "Vintage" - Edição Limitada (R$ 75,00) na sua vitrine StokFácil. Ainda está disponível?'
+        'Olá! Vi o produto Blusa "Vintage" - Edição Limitada (R$ 75,00) no seu catálogo StokFácil e quero comprar. Como faço para fechar o pedido?'
       );
     });
   });
@@ -221,7 +221,7 @@ describe('whatsapp.ts — buildOrderLink', () => {
       const decoded = decodeURIComponent(link!.split('?text=')[1]);
       expect(decoded).toContain('Vestido Longo 👗✨');
       expect(decoded).toBe(
-        'Olá! Vi o produto Vestido Longo 👗✨ (R$ 199,90) na sua vitrine StokFácil. Ainda está disponível?'
+        'Olá! Vi o produto Vestido Longo 👗✨ (R$ 199,90) no seu catálogo StokFácil e quero comprar. Como faço para fechar o pedido?'
       );
     });
 
@@ -250,7 +250,7 @@ describe('whatsapp.ts — buildOrderLink', () => {
       expect(link).not.toBeNull();
       const decoded = decodeURIComponent(link!.split('?text=')[1]);
       expect(decoded).toBe(
-        'Olá! Vi o produto Saia Jeans (R$ 89,90) na sua vitrine StokFácil (https://stokfacil.com/loja-carol). Ainda está disponível?'
+        'Olá! Vi o produto Saia Jeans (R$ 89,90) no seu catálogo StokFácil (https://stokfacil.com/loja-carol) e quero comprar. Como faço para fechar o pedido?'
       );
     });
 
@@ -275,7 +275,7 @@ describe('whatsapp.ts — buildOrderLink', () => {
       });
 
       const expected =
-        'Olá! Vi o produto Saia Jeans (R$ 89,90) na sua vitrine StokFácil. Ainda está disponível?';
+        'Olá! Vi o produto Saia Jeans (R$ 89,90) no seu catálogo StokFácil e quero comprar. Como faço para fechar o pedido?';
 
       expect(decodeURIComponent(linkNull!.split('?text=')[1])).toBe(expected);
       expect(decodeURIComponent(linkUndefined!.split('?text=')[1])).toBe(expected);
@@ -283,8 +283,8 @@ describe('whatsapp.ts — buildOrderLink', () => {
     });
   });
 
-  describe('Padrão do Blueprint (RF09 / Seção 2.4)', () => {
-    it('monta a mensagem exata descrita no blueprint', () => {
+  describe('Intenção direta de compra (ITEM-3 / Pedido direto no WhatsApp)', () => {
+    it('monta a mensagem ativa e assertiva de fechamento de pedido', () => {
       const link = buildOrderLink({
         phone: '5511999999999',
         title: 'Colar de Prata',
@@ -294,9 +294,26 @@ describe('whatsapp.ts — buildOrderLink', () => {
       expect(link).toBe(
         'https://wa.me/5511999999999?text=' +
           encodeURIComponent(
-            'Olá! Vi o produto Colar de Prata (R$ 120,00) na sua vitrine StokFácil. Ainda está disponível?'
+            'Olá! Vi o produto Colar de Prata (R$ 120,00) no seu catálogo StokFácil e quero comprar. Como faço para fechar o pedido?'
           )
       );
+    });
+
+    it('não utiliza pergunta passiva de disponibilidade ("Ainda está disponível?")', () => {
+      const link = buildOrderLink({
+        phone: '5511999999999',
+        title: 'Vestido Estampado',
+        price: 79.9,
+        storeUrl: 'https://stokfacil.com/loja-carol',
+      });
+
+      expect(link).not.toBeNull();
+      const decoded = decodeURIComponent(link!.split('?text=')[1]);
+      expect(decoded).not.toContain('Ainda está disponível?');
+      expect(decoded).not.toContain('na sua vitrine StokFácil');
+      expect(decoded).toContain('no seu catálogo StokFácil');
+      expect(decoded).toContain('quero comprar');
+      expect(decoded).toContain('Como faço para fechar o pedido?');
     });
   });
 });

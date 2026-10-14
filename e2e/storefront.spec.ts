@@ -94,7 +94,7 @@ test.describe('Vitrine (Storefront)', () => {
       const href = await orderButton.getAttribute('href');
       expect(href).toMatch(/^https:\/\/wa\.me\/55\d+\?text=/);
       expect(href).toContain(encodeURIComponent('Olá! Vi o produto'));
-      expect(href).toContain(encodeURIComponent('Ainda está disponível?'));
+      expect(href).toContain(encodeURIComponent('Como faço para fechar o pedido?'));
       await expect(orderButton).toHaveAttribute('target', '_blank');
       await expect(orderButton).toHaveAttribute('rel', /noopener/);
     } else {

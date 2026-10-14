@@ -12,8 +12,8 @@ export interface BuildOrderLinkParams {
  * Constrói o link direto de pedido via WhatsApp ("https://wa.me/<phone>?text=...")
  *
  * Formato da mensagem:
- * "Olá! Vi o produto [Título] (R$ [Preço formatado em PT-BR]) na sua vitrine StokFácil. Ainda está disponível?"
- * (incluindo o link storeUrl opcional se fornecido, ex.: "(https://...)")
+ * "Olá! Vi o produto [Título] (R$ [Preço formatado em PT-BR]) no seu catálogo StokFácil e quero comprar. Como faço para fechar o pedido?"
+ * (incluindo o link storeUrl opcional se fornecido, ex.: " (https://...)")
  *
  * Retorna `null` se o telefone for nulo, indefinido ou inválido.
  */
@@ -38,7 +38,7 @@ export function buildOrderLink({
   const cleanStoreUrl = storeUrl?.trim();
 
   const urlPart = cleanStoreUrl ? ` (${cleanStoreUrl})` : '';
-  const message = `Olá! Vi o produto ${cleanTitle} (${formattedPrice}) na sua vitrine StokFácil${urlPart}. Ainda está disponível?`;
+  const message = `Olá! Vi o produto ${cleanTitle} (${formattedPrice}) no seu catálogo StokFácil${urlPart} e quero comprar. Como faço para fechar o pedido?`;
 
   return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
 }
