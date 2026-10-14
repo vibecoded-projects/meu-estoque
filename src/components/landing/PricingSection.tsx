@@ -47,9 +47,22 @@ export function PricingSection() {
                 <div>
                   {/* Plan Title & Benefit */}
                   <div className="mb-4">
-                    <h3 className="text-xl font-bold text-slate-900">
-                      {plan.title}
-                    </h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xl font-bold text-slate-900">
+                        {plan.title}
+                      </h3>
+                      {plan.discountPercent > 0 && (
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide shrink-0 ${
+                            isAnnual
+                              ? "bg-emerald-700 text-white shadow-xs"
+                              : "bg-emerald-50 text-emerald-800 border border-emerald-300"
+                          }`}
+                        >
+                          {isAnnual ? "36% OFF" : plan.formattedDiscount}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs sm:text-sm text-slate-600 mt-1 min-h-[36px] line-clamp-2">
                       {plan.mainBenefit}
                     </p>
@@ -67,22 +80,27 @@ export function PricingSection() {
                     </div>
 
                     {/* Monthly Equivalent or Savings Badge */}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
                       {isAnnual ? (
                         <>
-                          <span className="inline-block px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-semibold">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold shadow-2xs">
+                            36% OFF / Super Economia
+                          </span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-semibold">
                             Apenas ~R$ 24,90/mês
                           </span>
-                          <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold">
-                            Economize R$ 169/ano
+                        </>
+                      ) : plan.discountPercent > 0 ? (
+                        <>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold shadow-2xs">
+                            {plan.formattedDiscount}
+                          </span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
+                            {plan.formattedMonthlyEquivalent}
                           </span>
                         </>
-                      ) : plan.savings > 0 ? (
-                        <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold">
-                          Economia de R$ {plan.savings} no ciclo
-                        </span>
                       ) : (
-                        <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-medium">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
                           Pagamento mensal flexível
                         </span>
                       )}

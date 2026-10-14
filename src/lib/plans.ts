@@ -13,6 +13,8 @@ export interface PlanDefinition {
   monthlyEquivalent: number;
   formattedMonthlyEquivalent: string;
   savings: number;
+  discountPercent: number;
+  formattedDiscount: string;
   highlight: boolean;
   badge?: string;
   mainBenefit: string;
@@ -24,6 +26,8 @@ export interface PlanDefinition {
   preco: number;
   ciclo: string;
   destaque: boolean;
+  percentualDesconto: number;
+  descontoFormatado: string;
   recursos: readonly string[];
   beneficioPrincipal: string;
 }
@@ -35,6 +39,18 @@ export const BASE_MONTHLY_PRICE = 39;
  */
 export function calculateSavings(price: number, durationMonths: number): number {
   return BASE_MONTHLY_PRICE * durationMonths - price;
+}
+
+/**
+ * Calcula a porcentagem inteira de desconto em relação ao preço base mensal acumulado.
+ * Retorna 0 caso não haja desconto ou os parâmetros sejam inválidos.
+ */
+export function calculateDiscountPercent(price: number, durationMonths: number): number {
+  if (durationMonths <= 0 || price <= 0) return 0;
+  const baseTotal = BASE_MONTHLY_PRICE * durationMonths;
+  if (price >= baseTotal) return 0;
+  const discount = ((baseTotal - price) / baseTotal) * 100;
+  return Math.floor(discount);
 }
 
 /**
@@ -57,6 +73,8 @@ export const PLANS: readonly PlanDefinition[] = [
     monthlyEquivalent: 39,
     formattedMonthlyEquivalent: 'R$ 39,00/mês',
     savings: 0,
+    discountPercent: 0,
+    formattedDiscount: 'Sem desconto',
     highlight: false,
     mainBenefit: 'Sem fidelidade, flexibilidade mês a mês',
     features: [
@@ -71,6 +89,8 @@ export const PLANS: readonly PlanDefinition[] = [
     preco: 39,
     ciclo: 'mês',
     destaque: false,
+    percentualDesconto: 0,
+    descontoFormatado: 'Sem desconto',
     recursos: [
       'Catálogo digital ilimitado com fotos',
       'Botão direto "Pedir no WhatsApp"',
@@ -91,12 +111,14 @@ export const PLANS: readonly PlanDefinition[] = [
     monthlyEquivalent: 33,
     formattedMonthlyEquivalent: 'R$ 33,00/mês',
     savings: 18,
+    discountPercent: 15,
+    formattedDiscount: '15% OFF',
     highlight: false,
-    mainBenefit: 'Economia de R$ 18 a cada 3 meses',
+    mainBenefit: '15% OFF: economia garantida no plano trimestral',
     features: [
       'Todos os recursos do plano Mensal',
-      'Economia de R$ 18 no ciclo',
-      'Cobrança a cada 3 meses',
+      '15% OFF de desconto (Economia de R$ 18 no ciclo)',
+      'Cobrança a cada 3 meses (R$ 33/mês)',
       'Suporte direto via WhatsApp',
     ],
     ctaText: 'Escolher Trimestral',
@@ -104,13 +126,15 @@ export const PLANS: readonly PlanDefinition[] = [
     preco: 99,
     ciclo: 'trimestre',
     destaque: false,
+    percentualDesconto: 15,
+    descontoFormatado: '15% OFF',
     recursos: [
       'Todos os recursos do plano Mensal',
-      'Economia de R$ 18 no ciclo',
-      'Cobrança a cada 3 meses',
+      '15% OFF de desconto (Economia de R$ 18 no ciclo)',
+      'Cobrança a cada 3 meses (R$ 33/mês)',
       'Suporte direto via WhatsApp',
     ],
-    beneficioPrincipal: 'Economia de R$ 18 a cada 3 meses',
+    beneficioPrincipal: '15% OFF: economia garantida no plano trimestral',
   },
   {
     id: 'semiannual',
@@ -123,12 +147,14 @@ export const PLANS: readonly PlanDefinition[] = [
     monthlyEquivalent: 28.17,
     formattedMonthlyEquivalent: 'R$ 28,17/mês',
     savings: 65,
+    discountPercent: 27,
+    formattedDiscount: '27% OFF',
     highlight: false,
-    mainBenefit: 'Economia de R$ 65 e tranquilidade por 6 meses',
+    mainBenefit: '27% OFF: mais de 1/4 de desconto e tranquilidade por 6 meses',
     features: [
       'Todos os recursos do plano Mensal',
-      'Economia de R$ 65 no ciclo',
-      'Cobrança a cada 6 meses',
+      '27% OFF de desconto (Economia de R$ 65 no ciclo)',
+      'Cobrança a cada 6 meses (~R$ 28,17/mês)',
       'Suporte direto via WhatsApp',
     ],
     ctaText: 'Escolher Semestral',
@@ -136,13 +162,15 @@ export const PLANS: readonly PlanDefinition[] = [
     preco: 169,
     ciclo: 'semestre',
     destaque: false,
+    percentualDesconto: 27,
+    descontoFormatado: '27% OFF',
     recursos: [
       'Todos os recursos do plano Mensal',
-      'Economia de R$ 65 no ciclo',
-      'Cobrança a cada 6 meses',
+      '27% OFF de desconto (Economia de R$ 65 no ciclo)',
+      'Cobrança a cada 6 meses (~R$ 28,17/mês)',
       'Suporte direto via WhatsApp',
     ],
-    beneficioPrincipal: 'Economia de R$ 65 e tranquilidade por 6 meses',
+    beneficioPrincipal: '27% OFF: mais de 1/4 de desconto e tranquilidade por 6 meses',
   },
   {
     id: 'annual',
@@ -155,15 +183,17 @@ export const PLANS: readonly PlanDefinition[] = [
     monthlyEquivalent: 24.92,
     formattedMonthlyEquivalent: '~R$ 24,90/mês',
     savings: 169,
+    discountPercent: 36,
+    formattedDiscount: '36% OFF',
     highlight: true,
     badge: 'Mais Popular · Melhor Custo-Benefício',
-    mainBenefit: 'Destaque VIP: ~R$ 24,90/mês, Setup de 15 itens incluso, White-label e Kit Balcão',
+    mainBenefit: 'Super Economia com 36% OFF: ~R$ 24,90/mês, Setup de 15 itens incluso, White-label e Kit Balcão',
     features: [
       'Todos os recursos da plataforma',
       'Setup inicial de até 15 itens incluso (Concierge)',
       'White-label sem marca no rodapé',
       'Gerador de Kit de Balcão em PDF com QR Code',
-      'Maior economia: R$ 169 de desconto no ano (~R$ 24,90/mês)',
+      'Super Economia: 36% OFF (R$ 169 de desconto no ano, ~R$ 24,90/mês)',
       'Atendimento VIP prioritário',
     ],
     ctaText: 'Garantir Plano Anual VIP',
@@ -171,15 +201,17 @@ export const PLANS: readonly PlanDefinition[] = [
     preco: 299,
     ciclo: 'ano',
     destaque: true,
+    percentualDesconto: 36,
+    descontoFormatado: '36% OFF',
     recursos: [
       'Todos os recursos da plataforma',
       'Setup inicial de até 15 itens incluso (Concierge)',
       'White-label sem marca no rodapé',
       'Gerador de Kit de Balcão em PDF com QR Code',
-      'Maior economia: R$ 169 de desconto no ano (~R$ 24,90/mês)',
+      'Super Economia: 36% OFF (R$ 169 de desconto no ano, ~R$ 24,90/mês)',
       'Atendimento VIP prioritário',
     ],
-    beneficioPrincipal: 'Destaque VIP: ~R$ 24,90/mês, Setup de 15 itens incluso, White-label e Kit Balcão',
+    beneficioPrincipal: 'Super Economia com 36% OFF: ~R$ 24,90/mês, Setup de 15 itens incluso, White-label e Kit Balcão',
   },
 ] as const;
 
