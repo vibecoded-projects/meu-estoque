@@ -59,7 +59,7 @@ export function PricingSection() {
                               : "bg-emerald-50 text-emerald-800 border border-emerald-300"
                           }`}
                         >
-                          {isAnnual ? "36% OFF" : plan.formattedDiscount}
+                          {plan.formattedDiscount}
                         </span>
                       )}
                     </div>
@@ -84,10 +84,10 @@ export function PricingSection() {
                       {isAnnual ? (
                         <>
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold shadow-2xs">
-                            36% OFF / Super Economia
+                            {plan.formattedDiscount} / Super Economia
                           </span>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-semibold">
-                            Apenas ~R$ 24,90/mês
+                            Apenas {plan.formattedMonthlyEquivalent}
                           </span>
                         </>
                       ) : plan.discountPercent > 0 ? (

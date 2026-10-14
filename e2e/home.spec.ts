@@ -54,15 +54,15 @@ test.describe('Home Page — Landing Page & Planos (T10)', () => {
     await expect(page.getByRole('heading', { name: 'Anual' })).toBeVisible();
 
     // Preços de cada plano
-    await expect(page.getByText('R$ 39,00')).toBeVisible();
-    await expect(page.getByText('R$ 99,00')).toBeVisible();
-    await expect(page.getByText('R$ 169,00')).toBeVisible();
-    await expect(page.getByText('R$ 299,00')).toBeVisible();
+    await expect(page.getByText('R$ 19,90')).toBeVisible();
+    await expect(page.getByText('R$ 49,90')).toBeVisible();
+    await expect(page.getByText('R$ 89,90')).toBeVisible();
+    await expect(page.getByText('R$ 149,90')).toBeVisible();
 
     // Economias e destaques
-    await expect(page.getByText(/Economia de R\$ 18/i).first()).toBeVisible();
-    await expect(page.getByText(/Economia de R\$ 65/i).first()).toBeVisible();
-    await expect(page.getByText(/Apenas ~R\$ 24,90\/mês/i)).toBeVisible();
+    await expect(page.getByText(/Economia de R\$ 9,80/i).first()).toBeVisible();
+    await expect(page.getByText(/Economia de R\$ 29,50/i).first()).toBeVisible();
+    await expect(page.getByText(/Apenas ~R\$ 12,49\/mês/i)).toBeVisible();
 
     // Recursos exclusivos do plano Anual
     await expect(page.getByText(/Setup inicial de até 15 itens incluso/i).first()).toBeVisible();
