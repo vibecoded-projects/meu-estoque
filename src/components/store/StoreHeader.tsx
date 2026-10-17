@@ -1,14 +1,29 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Pencil, Save, Phone, AlertCircle, Copy, Check, Link2, ListPlus, Camera } from 'lucide-react';
+import { Pencil, Save, Phone, AlertCircle, Copy, Check, Link2, ListPlus, Camera, Share2 } from 'lucide-react';
 import { updateNamespace, markShared } from '@/app/actions';
 import { formatBrazilianPhone, normalizeBrazilianPhone } from '@/lib/phone';
-import { copyToClipboard, getStoreUrl } from '@/lib/share';
+import { copyToClipboard, getStoreUrl, buildWhatsAppStoreShareLink, shareUrlOrWhatsApp } from '@/lib/share';
 import { parseImages } from '@/lib/format';
 import type { Namespace, Item } from '@/lib/types';
 import { BatchImportModal } from './BatchImportModal';
 import { PhotoConveyorModal } from './PhotoConveyorModal';
+
+function WhatsAppIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.04 14.69 2 12.04 2M12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 15 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67M9.11 7.44C8.95 7.44 8.68 7.5 8.46 7.74C8.24 7.97 7.62 8.56 7.62 9.75C7.62 10.95 8.49 12.1 8.61 12.26C8.73 12.42 10.32 14.88 12.77 15.93C14.8 16.81 15.22 16.63 15.67 16.59C16.12 16.55 17.11 16 17.31 15.43C17.52 14.86 17.52 14.37 17.46 14.27C17.4 14.17 17.24 14.11 17 13.99C16.76 13.87 15.58 13.29 15.36 13.21C15.14 13.13 14.98 13.09 14.82 13.33C14.66 13.57 14.2 14.11 14.06 14.27C13.92 14.43 13.78 14.45 13.54 14.33C13.3 14.21 12.53 13.96 11.61 13.14C10.89 12.5 10.4 11.71 10.26 11.47C10.12 11.23 10.25 11.1 10.37 10.98C10.48 10.87 10.61 10.69 10.74 10.54C10.86 10.39 10.9 10.28 10.98 10.12C11.06 9.96 11.02 9.82 10.96 9.7C10.9 9.58 10.44 8.45 10.25 7.99C10.06 7.54 9.87 7.6 9.73 7.59C9.59 7.58 9.43 7.58 9.27 7.58L9.11 7.44Z" />
+    </svg>
+  );
+}
 
 function InstagramIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
   return (
@@ -174,39 +189,53 @@ export function StoreHeader({
     }
   };
 
+  const handleRegisterShare = () => {
+    onShared?.();
+
+    // Ativação progressiva (T15 / D3):
+    // Se a vitrine ainda não foi compartilhada (first_shared_at nulo),
+    // registra o compartilhamento em segundo plano sem bloquear a UI.
+    if (isAuthenticated && !namespace.first_shared_at) {
+      markShared(namespace.slug || slug)
+        .then((res) => {
+          if (res.success && onUpdateNamespace) {
+            const extended = Boolean(
+              res.data && (res.data as { extended?: boolean }).extended
+            );
+            onUpdateNamespace({
+              ...namespace,
+              first_shared_at: new Date().toISOString(),
+              ...(extended
+                ? { trial_extended: true, activation_completed: true }
+                : {}),
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('[StoreHeader] Erro ao registrar compartilhamento:', err);
+        });
+    }
+  };
+
   const handleCopyBioLink = async () => {
     const storeUrl = getStoreUrl(slug);
     const ok = await copyToClipboard(storeUrl);
     if (ok) {
       setIsBioCopied(true);
-      onShared?.();
-
-      // Ativação progressiva (T15 / D3):
-      // Se a vitrine ainda não foi compartilhada (first_shared_at nulo),
-      // registra o compartilhamento em segundo plano sem bloquear a UI.
-      if (!namespace.first_shared_at) {
-        markShared(namespace.slug || slug)
-          .then((res) => {
-            if (res.success && onUpdateNamespace) {
-              const extended = Boolean(
-                res.data && (res.data as { extended?: boolean }).extended
-              );
-              onUpdateNamespace({
-                ...namespace,
-                first_shared_at: new Date().toISOString(),
-                ...(extended
-                  ? { trial_extended: true, activation_completed: true }
-                  : {}),
-              });
-            }
-          })
-          .catch((err) => {
-            console.error('[StoreHeader] Erro ao registrar compartilhamento:', err);
-          });
-      }
-
+      handleRegisterShare();
       setTimeout(() => setIsBioCopied(false), 3000);
     }
+  };
+
+  const handleShareStoreNative = async () => {
+    const storeUrl = getStoreUrl(slug);
+    const storeName = namespace.name || slug;
+    handleRegisterShare();
+    await shareUrlOrWhatsApp({
+      title: storeName,
+      text: `Conheça a vitrine online da ${storeName}! Veja todas as novidades e peças disponíveis no link:`,
+      url: storeUrl,
+    });
   };
 
   return (
@@ -361,7 +390,7 @@ export function StoreHeader({
                   </div>
                 )}
               </div>
-              {isAuthenticated && (
+              {isAuthenticated ? (
                 <div className="flex items-center gap-2 shrink-0 ml-4">
                   {hasItemsWithoutPhotos && (
                     <button
@@ -398,51 +427,99 @@ export function StoreHeader({
                     <Pencil size={18} />
                   </button>
                 </div>
+              ) : (
+                <div className="flex items-center gap-2 shrink-0 ml-4">
+                  <a
+                    href={buildWhatsAppStoreShareLink(namespace.name || slug, getStoreUrl(slug))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleRegisterShare}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm active:scale-95"
+                    title="Enviar vitrine para contatos ou grupos no WhatsApp"
+                  >
+                    <WhatsAppIcon size={16} className="shrink-0 text-white" />
+                    <span className="hidden sm:inline">Enviar no WhatsApp</span>
+                    <span className="sm:hidden">WhatsApp</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleShareStoreNative}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition-colors shadow-sm active:scale-95"
+                    title="Compartilhar vitrine em outras redes ou copiar link"
+                  >
+                    <Share2 size={16} className="text-slate-600 shrink-0" />
+                    <span className="hidden sm:inline">Compartilhar</span>
+                  </button>
+                </div>
               )}
             </div>
 
             {isAuthenticated && (
-              <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-pink-50/40 -mx-6 -mb-6 p-4 rounded-b-lg border-t border-indigo-100">
+              <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-pink-50/40 -mx-6 -mb-6 p-4 rounded-b-lg border-t border-indigo-100">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="p-2 bg-indigo-600 text-white rounded-lg shrink-0 shadow-sm">
                     <Link2 size={18} />
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                      <span>Link da Vitrine para a Bio</span>
+                      <span>Divulgação da Vitrine</span>
                       <span className="text-[10px] uppercase tracking-wider font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
-                        Instagram
+                        WhatsApp & Redes
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 mt-0.5">
                       {isBioCopied
-                        ? 'Cole no Instagram: Perfil > Editar perfil > Links > Adicionar link externo.'
-                        : '1 toque para copiar e colar na bio do seu perfil do Instagram.'}
+                        ? 'Link copiado! Cole no Instagram: Editar perfil > Links > Adicionar link externo.'
+                        : 'Envie a vitrine direto para contatos/grupos no WhatsApp ou copie o link.'}
                     </p>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleCopyBioLink}
-                  className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm active:scale-95 shrink-0 ${
-                    isBioCopied
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  }`}
-                >
-                  {isBioCopied ? (
-                    <>
-                      <Check size={16} />
-                      <span>Link copiado para a Bio!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={16} />
-                      <span>Copiar link da Bio</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <a
+                    href={buildWhatsAppStoreShareLink(namespace.name || slug, getStoreUrl(slug))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleRegisterShare}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-sm active:scale-95"
+                    title="Enviar vitrine online completa para contatos ou grupos no WhatsApp"
+                  >
+                    <WhatsAppIcon size={16} className="shrink-0 text-white" />
+                    <span>Enviar no WhatsApp</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={handleShareStoreNative}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-white text-slate-700 hover:bg-slate-100 border border-slate-300 transition-all shadow-sm active:scale-95"
+                    title="Compartilhar vitrine nativamente (WhatsApp, Stories, Telegram, etc.)"
+                  >
+                    <Share2 size={16} className="text-slate-600 shrink-0" />
+                    <span>Compartilhar</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyBioLink}
+                    className={`inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-95 ${
+                      isBioCopied
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                  >
+                    {isBioCopied ? (
+                      <>
+                        <Check size={16} />
+                        <span>Link da Bio copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={16} />
+                        <span>Copiar link da Bio</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             )}
           </div>

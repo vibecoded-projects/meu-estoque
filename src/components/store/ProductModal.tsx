@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Image as ImageIcon, Copy, Check, Download, ExternalLink, Pencil, Trash2, Phone, Share2 } from 'lucide-react';
 import { parseImages, formatPrice, formatItemDetails } from '@/lib/format';
 import { buildOrderLink } from '@/lib/whatsapp';
-import { buildCaption, copyToClipboard, shareOrDownloadImage, getStoreUrl } from '@/lib/share';
+import { buildCaption, copyToClipboard, shareOrDownloadImage, getStoreUrl, buildWhatsAppProductShareLink, shareUrlOrWhatsApp } from '@/lib/share';
 import type { Item, Namespace } from '@/lib/types';
 
 function WhatsAppIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
@@ -85,10 +85,27 @@ export function ProductModal({
     }
   };
 
+  const targetUrl =
+    storeUrl ||
+    (slug ? getStoreUrl(slug) : namespace?.slug ? getStoreUrl(namespace.slug) : typeof window !== 'undefined' ? window.location.href : '');
+
+  const whatsappProductShareUrl = buildWhatsAppProductShareLink(item, targetUrl);
+
+  const handleShareProduct = async () => {
+    onShared?.();
+    const safePrice =
+      typeof item.price === 'number' && !isNaN(item.price) && isFinite(item.price) && item.price >= 0
+        ? item.price
+        : 0;
+    const formattedPrice = formatPrice(safePrice).replace(/\s+/g, ' ');
+    await shareUrlOrWhatsApp({
+      title: item.title,
+      text: `Olha essa novidade: *${item.title.trim()}* por apenas *${formattedPrice}*!\n\nConfira todos os detalhes e fotos na nossa vitrine:`,
+      url: targetUrl,
+    });
+  };
+
   const handleCopyCaption = async () => {
-    const targetUrl =
-      storeUrl ||
-      (slug ? getStoreUrl(slug) : namespace?.slug ? getStoreUrl(namespace.slug) : typeof window !== 'undefined' ? window.location.href : '');
     const caption = buildCaption(item, targetUrl);
     const ok = await copyToClipboard(caption);
     if (ok) {
@@ -230,6 +247,29 @@ export function ProductModal({
                   <span>Cadastre o WhatsApp no cabeçalho da loja para ativar o botão de pedidos.</span>
                 </div>
               )}
+
+              {/* Botão de super-compartilhamento: Compartilhar no WhatsApp (com opção nativa ao lado) */}
+              <div className="flex gap-2">
+                <a
+                  href={whatsappProductShareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => onShared?.()}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-medium text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition-all shadow-sm active:scale-95"
+                  title="Enviar mensagem do produto para grupos ou contatos no WhatsApp"
+                >
+                  <WhatsAppIcon size={18} className="shrink-0 text-emerald-600" />
+                  <span>Compartilhar no WhatsApp</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleShareProduct}
+                  className="px-3 py-2.5 rounded-xl font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all shadow-sm active:scale-95 flex items-center justify-center"
+                  title="Compartilhar nativo (WhatsApp, Stories, Telegram, etc.)"
+                >
+                  <Share2 size={18} className="text-slate-600" />
+                </button>
+              </div>
 
               {/* Botão Copiar legenda com feedback 1 clique */}
               <button

@@ -4,6 +4,9 @@ import {
   getStoreUrl,
   copyToClipboard,
   shareOrDownloadImage,
+  buildWhatsAppStoreShareLink,
+  buildWhatsAppProductShareLink,
+  shareUrlOrWhatsApp,
 } from '../share';
 
 describe('share.ts — Super-poder de compartilhamento', () => {
@@ -417,6 +420,194 @@ describe('share.ts — Super-poder de compartilhamento', () => {
 
       expect(openMock).toHaveBeenCalledWith('https://exemplo.com/foto.jpg', '_blank');
       expect(res).toBe('downloaded');
+    });
+  });
+
+  describe('buildWhatsAppStoreShareLink', () => {
+    it('monta link com mensagem amigável sem nome de loja', () => {
+      const url = 'https://stokfacil.com/loja-carol';
+      const link = buildWhatsAppStoreShareLink('', url);
+
+      expect(link.startsWith('https://api.whatsapp.com/send?text=')).toBe(true);
+      const text = decodeURIComponent(link.replace('https://api.whatsapp.com/send?text=', ''));
+      expect(text).toBe('Conheça a nossa vitrine online! Veja todas as novidades e peças disponíveis no link: https://stokfacil.com/loja-carol');
+    });
+
+    it('monta link com mensagem personalizada com nome da loja', () => {
+      const url = 'https://stokfacil.com/boutique-luxo';
+      const link = buildWhatsAppStoreShareLink('Boutique Luxo', url);
+
+      const text = decodeURIComponent(link.replace('https://api.whatsapp.com/send?text=', ''));
+      expect(text).toBe('Conheça a vitrine online da Boutique Luxo! Veja todas as novidades e peças disponíveis no link: https://stokfacil.com/boutique-luxo');
+    });
+
+    it('remove espaços em excesso das bordas', () => {
+      const link = buildWhatsAppStoreShareLink('  Minha Loja  ', '  https://stokfacil.com/minha-loja  ');
+      const text = decodeURIComponent(link.replace('https://api.whatsapp.com/send?text=', ''));
+      expect(text).toBe('Conheça a vitrine online da Minha Loja! Veja todas as novidades e peças disponíveis no link: https://stokfacil.com/minha-loja');
+    });
+  });
+
+  describe('buildWhatsAppProductShareLink', () => {
+    it('monta link do item com título, preço em PT-BR em negrito e link da vitrine', () => {
+      const item = {
+        title: 'Vestido Midi Floral',
+        price: 129.9,
+      };
+      const storeUrl = 'https://stokfacil.com/loja-carol';
+      const link = buildWhatsAppProductShareLink(item, storeUrl);
+
+      expect(link.startsWith('https://api.whatsapp.com/send?text=')).toBe(true);
+      const text = decodeURIComponent(link.replace('https://api.whatsapp.com/send?text=', ''));
+      expect(text).toContain('Olha essa novidade: *Vestido Midi Floral* por apenas *R$ 129,90*!');
+      expect(text).toContain('Confira todos os detalhes e fotos na nossa vitrine: https://stokfacil.com/loja-carol');
+    });
+
+    it('trata preço zero adequadamente com R$ 0,00', () => {
+      const item = {
+        title: 'Amostra Grátis',
+        price: 0,
+      };
+      const link = buildWhatsAppProductShareLink(item, 'https://stokfacil.com/loja');
+      const text = decodeURIComponent(link.replace('https://api.whatsapp.com/send?text=', ''));
+      expect(text).toContain('*Amostra Grátis* por apenas *R$ 0,00*!');
+    });
+
+    it('limpa espaços do título e da url', () => {
+      const item = {
+        title: '  Bolsa Couro Legítimo  ',
+        price: 180,
+      };
+      const link = buildWhatsAppProductShareLink(item, '  https://stokfacil.com/bolsas  ');
+      const text = decodeURIComponent(link.replace('https://api.whatsapp.com/send?text=', ''));
+      expect(text).toContain('*Bolsa Couro Legítimo* por apenas *R$ 180,00*!');
+      expect(text).toContain('Confira todos os detalhes e fotos na nossa vitrine: https://stokfacil.com/bolsas');
+    });
+  });
+
+  describe('shareUrlOrWhatsApp', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it('retorna sem erro quando executado fora do navegador (SSR)', async () => {
+      vi.stubGlobal('window', undefined);
+      await expect(
+        shareUrlOrWhatsApp({
+          title: 'Loja Carol',
+          text: 'Confira nossos produtos',
+          url: 'https://stokfacil.com/loja-carol',
+        })
+      ).resolves.toBeUndefined();
+    });
+
+    it('usa navigator.share nativo quando disponível e bem-sucedido', async () => {
+      const shareMock = vi.fn().mockResolvedValue(undefined);
+
+      vi.stubGlobal('window', {});
+      vi.stubGlobal('navigator', {
+        share: shareMock,
+      });
+
+      await shareUrlOrWhatsApp({
+        title: 'Vestido Floral',
+        text: 'Olha esse vestido lindo',
+        url: 'https://stokfacil.com/loja/vestido',
+      });
+
+      expect(shareMock).toHaveBeenCalledWith({
+        title: 'Vestido Floral',
+        text: 'Olha esse vestido lindo',
+        url: 'https://stokfacil.com/loja/vestido',
+      });
+    });
+
+    it('não dispara fallback de WhatsApp quando o usuário cancela com AbortError', async () => {
+      const abortError = new Error('Canceled by user');
+      abortError.name = 'AbortError';
+      const shareMock = vi.fn().mockRejectedValue(abortError);
+      const openMock = vi.fn();
+
+      vi.stubGlobal('window', {
+        open: openMock,
+      });
+      vi.stubGlobal('navigator', {
+        share: shareMock,
+      });
+
+      await shareUrlOrWhatsApp({
+        title: 'Vestido Floral',
+        text: 'Olha esse vestido',
+        url: 'https://stokfacil.com/loja/vestido',
+      });
+
+      expect(shareMock).toHaveBeenCalled();
+      expect(openMock).not.toHaveBeenCalled();
+    });
+
+    it('aciona fallback para window.open com WhatsApp quando navigator.share não existe', async () => {
+      const openMock = vi.fn().mockReturnValue({});
+
+      vi.stubGlobal('window', {
+        open: openMock,
+      });
+      vi.stubGlobal('navigator', {});
+
+      await shareUrlOrWhatsApp({
+        title: 'Vestido Floral',
+        text: 'Olha esse vestido lindo',
+        url: 'https://stokfacil.com/loja/vestido',
+      });
+
+      expect(openMock).toHaveBeenCalled();
+      const calledUrl = openMock.mock.calls[0][0];
+      expect(calledUrl.startsWith('https://api.whatsapp.com/send?text=')).toBe(true);
+      const decoded = decodeURIComponent(calledUrl.replace('https://api.whatsapp.com/send?text=', ''));
+      expect(decoded).toContain('Olha esse vestido lindo');
+      expect(decoded).toContain('https://stokfacil.com/loja/vestido');
+    });
+
+    it('aciona fallback para window.open com WhatsApp quando navigator.share falha com NotAllowedError', async () => {
+      const notAllowedError = new Error('Permission denied');
+      notAllowedError.name = 'NotAllowedError';
+      const shareMock = vi.fn().mockRejectedValue(notAllowedError);
+      const openMock = vi.fn().mockReturnValue({});
+
+      vi.stubGlobal('window', {
+        open: openMock,
+      });
+      vi.stubGlobal('navigator', {
+        share: shareMock,
+      });
+
+      await shareUrlOrWhatsApp({
+        title: 'Vestido Floral',
+        text: 'Olha esse vestido',
+        url: 'https://stokfacil.com/loja/vestido',
+      });
+
+      expect(shareMock).toHaveBeenCalled();
+      expect(openMock).toHaveBeenCalled();
+    });
+
+    it('faz fallback para copiar para clipboard se window.open retornar nulo ou lançar erro', async () => {
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+
+      vi.stubGlobal('window', {
+        open: vi.fn().mockReturnValue(null),
+      });
+      vi.stubGlobal('navigator', {
+        clipboard: { writeText: writeTextMock },
+      });
+
+      await shareUrlOrWhatsApp({
+        title: 'Loja',
+        text: 'Visite nossa loja',
+        url: 'https://stokfacil.com/loja',
+      });
+
+      expect(writeTextMock).toHaveBeenCalled();
     });
   });
 });

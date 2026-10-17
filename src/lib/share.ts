@@ -168,3 +168,109 @@ export async function shareOrDownloadImage(
     return 'downloaded';
   }
 }
+
+/**
+ * Constrói o link direto para envio da vitrine completa via WhatsApp ("https://api.whatsapp.com/send?text=...").
+ * Permite que o vendedor envie a vitrine com 1 clique para qualquer contato individual ou grupo.
+ *
+ * Mensagem:
+ * "Conheça a nossa vitrine online! Veja todas as novidades e peças disponíveis no link: <url>"
+ * (Personaliza com o nome da loja caso fornecido).
+ */
+export function buildWhatsAppStoreShareLink(storeName: string, storeUrl: string): string {
+  const cleanUrl = (storeUrl || '').trim();
+  const cleanName = (storeName || '').trim();
+
+  const greeting = cleanName
+    ? `Conheça a vitrine online da ${cleanName}!`
+    : 'Conheça a nossa vitrine online!';
+
+  const message = cleanUrl
+    ? `${greeting} Veja todas as novidades e peças disponíveis no link: ${cleanUrl}`
+    : `${greeting} Veja todas as nossas novidades e peças disponíveis!`;
+
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+}
+
+/**
+ * Constrói o link direto para envio de um item específico via WhatsApp ("https://api.whatsapp.com/send?text=...").
+ *
+ * Formato da mensagem:
+ * "Olha essa novidade: *[Título]* por apenas *[Preço]*!\n\nConfira todos os detalhes e fotos na nossa vitrine: <itemUrl>"
+ */
+export function buildWhatsAppProductShareLink(
+  item: { title: string; price: number; description?: string | null },
+  storeUrl: string
+): string {
+  const cleanTitle = (item?.title || '').trim();
+  const safePrice =
+    typeof item?.price === 'number' && !isNaN(item.price) && isFinite(item.price) && item.price >= 0
+      ? item.price
+      : 0;
+  const formattedPrice = formatPrice(safePrice).replace(/\s+/g, ' ');
+  const cleanUrl = (storeUrl || '').trim();
+
+  const urlPart = cleanUrl ? `: ${cleanUrl}` : '.';
+  const message = `Olha essa novidade: *${cleanTitle}* por apenas *${formattedPrice}*!\n\nConfira todos os detalhes e fotos na nossa vitrine${urlPart}`;
+
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+}
+
+/**
+ * Compartilha URL/conteúdo tentando primariamente a Web Share API nativa (navigator.share).
+ * Caso o ambiente não suporte ou rejeite (ex: navegadores Desktop convencionais),
+ * aciona automaticamente o fallback direto para o WhatsApp (https://api.whatsapp.com/send?text=...).
+ * Se o usuário cancelar ativamente a tela de compartilhamento (AbortError), não dispara fallback.
+ */
+export async function shareUrlOrWhatsApp(params: {
+  title: string;
+  text: string;
+  url: string;
+}): Promise<void> {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const { title, text, url } = params;
+
+  // 1. Tenta Web Share API nativa (disponível em navegadores mobile modernos e apps compatíveis)
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({
+        title,
+        text,
+        url,
+      });
+      return;
+    } catch (err: unknown) {
+      const isAbort =
+        (err instanceof Error && err.name === 'AbortError') ||
+        (typeof err === 'object' && err !== null && (err as { name?: string }).name === 'AbortError');
+
+      if (isAbort) {
+        // Usuário cancelou intencionalmente a tela nativa; NÃO dispara fallback
+        return;
+      }
+      // Outros erros (ex.: NotAllowedError) prosseguem para o fallback do WhatsApp
+    }
+  }
+
+  // 2. Fallback direto para o WhatsApp
+  const cleanText = (text || '').trim();
+  const cleanUrl = (url || '').trim();
+  const fullText = cleanText.includes(cleanUrl)
+    ? cleanText
+    : `${cleanText ? `${cleanText}\n\n` : ''}${cleanUrl}`.trim();
+
+  const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullText)}`;
+
+  try {
+    const opened = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      await copyToClipboard(cleanUrl || fullText);
+    }
+  } catch {
+    await copyToClipboard(cleanUrl || fullText);
+  }
+}
+
